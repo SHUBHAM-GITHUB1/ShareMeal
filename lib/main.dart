@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'models/app_state.dart';
 import 'screens/login_screen.dart';
 import 'constants/app_theme.dart';
-
+//this is tejos
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
