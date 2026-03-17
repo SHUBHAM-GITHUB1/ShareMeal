@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/food_post.dart';
+import 'package:sharemeal/models/food_post.dart';
+import 'package:sharemeal/services/nutrition_service.dart';
 
 class MealService {
   final _db   = FirebaseFirestore.instance;
@@ -20,7 +21,11 @@ Future<void> confirmPickup(String mealId) async {
     required bool isVeg,
     required String donorName,
   }) async {
-    final uid = _auth.currentUser!.uid;
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception('Not authenticated');
+
+    // Fetch nutrition from API Ninjas (falls back to local if offline)
+    final nutrients = await NutritionService().getNutrients(item);
 
     await _db.collection('meals').add({
       'donorId':   uid,
@@ -32,6 +37,7 @@ Future<void> confirmPickup(String mealId) async {
       'status':    'available',
       'claimedBy': null,
       'postedAt':  FieldValue.serverTimestamp(),
+      'nutrients': nutrients.toMap(),
     });
   }
 
@@ -49,7 +55,8 @@ Future<void> confirmPickup(String mealId) async {
 
   // ── Live stream of THIS donor's meals only ───────────────────────
   Stream<List<FoodPost>> streamMyMeals() {
-  final uid = _auth.currentUser!.uid;
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
   return _db
       .collection('meals')
       .where('donorId', isEqualTo: uid)
@@ -61,7 +68,8 @@ Future<void> confirmPickup(String mealId) async {
 
   // ── NGO claims a meal ────────────────────────────────────────────
   Future<void> claimMeal(String mealId) async {
-    final uid = _auth.currentUser!.uid;
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception('Not authenticated');
     await _db.collection('meals').doc(mealId).update({
       'status':    'claimed',
       'claimedBy': uid,

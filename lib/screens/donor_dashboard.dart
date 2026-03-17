@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../models/food_post.dart';
-import '../models/app_state.dart';
-import '../models/nutrient_data.dart';
-import '../constants/app_theme.dart';
-import 'login_screen.dart';
-import 'auth_wrapper.dart';
-import '../services/meal_service.dart';
+import 'package:sharemeal/models/food_post.dart';
+import 'package:sharemeal/models/app_state.dart';
+import 'package:sharemeal/constants/app_theme.dart';
+import 'package:sharemeal/screens/auth_wrapper.dart';
+import 'package:sharemeal/services/meal_service.dart';
 
 
 class DonorDashboard extends StatefulWidget {
@@ -298,13 +296,10 @@ class _DonorPostCard extends StatelessWidget {
               if (post.nutrients != null) ...[
                 const SizedBox(height: 10),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  _NutrientChip('Protein', post.nutrients!.protein,
-                      const Color(0xFF5B8DEF)),
-                  _NutrientChip('Carbs', post.nutrients!.carbs,
-                      AppColors.amber),
-                  _NutrientChip('Fat', post.nutrients!.fat, AppColors.terr),
-                  _NutrientChip('Vitamins', post.nutrients!.vitamins,
-                      const Color(0xFF8B5CF6)),
+                  _NutrientChip('🔥 Cal',    post.nutrients!.caloriesStr, Colors.deepOrange),
+                  _NutrientChip('Protein',   post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
+                  _NutrientChip('Carbs',     post.nutrients!.carbsStr,    AppColors.amber),
+                  _NutrientChip('Fat',       post.nutrients!.fatStr,      AppColors.terr),
                 ]),
               ],
 

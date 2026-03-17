@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../models/app_state.dart';
-import '../models/food_post.dart';
-import '../constants/app_theme.dart';
-import 'login_screen.dart';
-import '../services/meal_service.dart';
-import 'auth_wrapper.dart';
+import 'package:sharemeal/models/app_state.dart';
+import 'package:sharemeal/models/food_post.dart';
+import 'package:sharemeal/constants/app_theme.dart';
+import 'package:sharemeal/screens/login_screen.dart';
+import 'package:sharemeal/services/meal_service.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});
@@ -187,10 +186,10 @@ class _FoodCard extends StatelessWidget {
             if (post.nutrients != null) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [
-                _NutrientChip('Protein',  post.nutrients!.protein,  const Color(0xFF5B8DEF)),
-                _NutrientChip('Carbs',    post.nutrients!.carbs,    AppColors.amber),
-                _NutrientChip('Fat',      post.nutrients!.fat,      AppColors.terr),
-                _NutrientChip('Vitamins', post.nutrients!.vitamins, const Color(0xFF8B5CF6)),
+                _NutrientChip('🔥 Cal',  post.nutrients!.caloriesStr, Colors.deepOrange),
+                _NutrientChip('Protein', post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
+                _NutrientChip('Carbs',   post.nutrients!.carbsStr,    AppColors.amber),
+                _NutrientChip('Fat',     post.nutrients!.fatStr,      AppColors.terr),
               ]),
             ],
 
@@ -270,25 +269,47 @@ class _FoodCard extends StatelessWidget {
                     const Icon(Icons.local_dining_outlined,
                         color: AppColors.sage, size: 16),
                     const SizedBox(width: 6),
-                    Text('Nutritional Info',
+                    Text('Nutrition Facts',
                         style: AppTextStyles.body.copyWith(
                             fontWeight: FontWeight.w700,
                             color: AppColors.sage)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: post.nutrients!.source == 'api'
+                            ? Colors.green.withOpacity(0.15)
+                            : Colors.orange.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        post.nutrients!.source == 'api' ? 'Live API' : 'Estimated',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: post.nutrients!.source == 'api'
+                              ? Colors.green : Colors.orange,
+                        ),
+                      ),
+                    ),
                   ]),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(child: _NutrientBox('Protein',
-                        post.nutrients!.protein, const Color(0xFF5B8DEF))),
+                    Expanded(child: _NutrientBox('🔥 Cal',    post.nutrients!.caloriesStr, Colors.deepOrange)),
                     const SizedBox(width: 8),
-                    Expanded(child: _NutrientBox('Carbs',
-                        post.nutrients!.carbs, AppColors.amber)),
+                    Expanded(child: _NutrientBox('Protein', post.nutrients!.proteinStr,  const Color(0xFF5B8DEF))),
                     const SizedBox(width: 8),
-                    Expanded(child: _NutrientBox('Fat',
-                        post.nutrients!.fat, AppColors.terr)),
+                    Expanded(child: _NutrientBox('Carbs',   post.nutrients!.carbsStr,    AppColors.amber)),
                     const SizedBox(width: 8),
-                    Expanded(child: _NutrientBox('Vitamins',
-                        post.nutrients!.vitamins, const Color(0xFF8B5CF6))),
+                    Expanded(child: _NutrientBox('Fat',     post.nutrients!.fatStr,      AppColors.terr)),
                   ]),
+                  const SizedBox(height: 10),
+                  _InfoRow('Fiber',       post.nutrients!.fiberStr),
+                  _InfoRow('Sugar',       post.nutrients!.sugarStr),
+                  _InfoRow('Sodium',      post.nutrients!.sodiumStr),
+                  _InfoRow('Cholesterol', post.nutrients!.cholesterolStr),
+                  if (post.nutrients!.servingSize > 0)
+                    _InfoRow('Serving',   post.nutrients!.servingSizeStr),
                 ]),
               ),
             ],
@@ -677,12 +698,32 @@ class _NutrientBox extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.22)),
       ),
       child: Column(children: [
-        Text(value, style: TextStyle(fontSize: 14,
+        Text(value, style: TextStyle(fontSize: 13,
             fontWeight: FontWeight.w700, color: color)),
         const SizedBox(height: 3),
         Text(label, style: AppTextStyles.bodySmall.copyWith(
             fontWeight: FontWeight.w500)),
       ]),
+    );
+  }
+}
+
+// ─── Info Row ─────────────────────────────────────────────────────────────────
+class _InfoRow extends StatelessWidget {
+  final String label, value;
+  const _InfoRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Text(label, style: AppTextStyles.bodySmall),
+          const Spacer(),
+          Text(value, style: AppTextStyles.bodySmall.copyWith(
+              fontWeight: FontWeight.w600, color: AppColors.ink2)),
+        ],
+      ),
     );
   }
 }
