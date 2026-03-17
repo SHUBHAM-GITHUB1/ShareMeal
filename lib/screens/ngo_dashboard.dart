@@ -5,6 +5,7 @@ import '../models/app_state.dart';
 import '../models/food_post.dart';
 import '../constants/app_theme.dart';
 import 'login_screen.dart';
+import '../services/meal_service.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});
@@ -50,17 +51,25 @@ class _NGODashboardState extends State<NGODashboard> {
         ],
       ),
       drawer: _SharedDrawer(user: user, appState: appState),
-      body: appState.allPosts.isEmpty
-          ? const _EmptyState(isDonor: false)
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-              itemCount: appState.allPosts.length,
-              itemBuilder: (_, i) => _FoodCard(
-                post: appState.allPosts[i],
-                index: i,
-                appState: appState,
-              ),
+      body: StreamBuilder<List<FoodPost>>(
+  stream: MealService().streamAvailableMeals(),
+  builder: (context, snap) {
+    if (snap.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final posts = snap.data ?? [];
+    return posts.isEmpty
+        ? const _EmptyState(isDonor: false)
+        : ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+            itemCount: posts.length,
+            itemBuilder: (_, i) => _FoodCard(
+              post: posts[i],
+              index: i,
             ),
+          );
+  },
+),
     );
   }
 }
@@ -69,9 +78,7 @@ class _NGODashboardState extends State<NGODashboard> {
 class _FoodCard extends StatelessWidget {
   final FoodPost post;
   final int index;
-  final AppState appState;
-  const _FoodCard({required this.post, required this.index,
-      required this.appState});
+  const _FoodCard({required this.post, required this.index});
 
   @override
   Widget build(BuildContext context) {
@@ -326,7 +333,7 @@ class _FoodCard extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () {
                     Navigator.pop(ctx);
-                    _confirmClaim(context, appState, index);
+                    _confirmClaim(context);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 13),
@@ -352,8 +359,9 @@ class _FoodCard extends StatelessWidget {
     );
   }
 
-  void _confirmClaim(BuildContext context, AppState state, int index) {
-    final p = state.allPosts[index];
+  void _confirmClaim(BuildContext context) {
+    final p = post;
+    
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -419,12 +427,14 @@ class _FoodCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: GestureDetector(
-                  onTap: () {
-                    state.removePost(index);
-                    Navigator.pop(ctx);
-                    _snack(context,
-                        'Food claimed! Donor has been notified',
-                        AppColors.sage);
+                  onTap: () async {
+                    try {
+                      await MealService().claimMeal(post.id);
+                      Navigator.pop(ctx);
+                      _snack(context, '✅ Food claimed! Donor has been notified', AppColors.sage);
+                    } catch (e) {
+                      _snack(context, 'Error: $e', AppColors.terr);
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 13),
@@ -598,11 +608,12 @@ class _SharedDrawer extends StatelessWidget {
                     fontWeight: FontWeight.w700, color: AppColors.terr)),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14)),
-            onTap: () {
-              appState.logout();
+            onTap: () async {
+              await appState.logout();
+              if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (r) => false,
+                (r) => false,
               );
             },
           ),

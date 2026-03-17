@@ -7,6 +7,8 @@ import '../models/app_state.dart';
 import '../models/nutrient_data.dart';
 import '../constants/app_theme.dart';
 import 'login_screen.dart';
+import '../services/meal_service.dart';
+
 
 class DonorDashboard extends StatefulWidget {
   const DonorDashboard({super.key});
@@ -47,14 +49,23 @@ class _DonorDashboardState extends State<DonorDashboard> {
         ),
       ]),
       drawer: _SharedDrawer(user: user, appState: appState),
-      body: appState.allPosts.isEmpty
-          ? const _EmptyState(isDonor: true)
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
-              itemCount: appState.allPosts.length,
-              itemBuilder: (_, i) =>
-                  _DonorPostCard(post: appState.allPosts[i], index: i),
-            ),
+      body: StreamBuilder<List<FoodPost>>(
+        stream: MealService().streamMyMeals(),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final posts = snap.data ?? [];
+          return posts.isEmpty
+              ? const _EmptyState(isDonor: true)
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
+                  itemCount: posts.length,
+                  itemBuilder: (_, i) =>
+                      _DonorPostCard(post: posts[i], index: i),
+                );
+        },
+      ),
       floatingActionButton: _GradientFAB(
         onPressed: () => _showForm(context, user?.orgName ?? 'Anonymous'),
       ),
@@ -180,23 +191,22 @@ class _DonorDashboardState extends State<DonorDashboard> {
                   flex: 2,
                   child: _GradientButton(
                     label: 'Post Donation',
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        final nutrients = NutrientData.getNutrients(_itemCtrl.text.trim());
-                        Provider.of<AppState>(context, listen: false).addPost(FoodPost(
-                          id:        DateTime.now().millisecondsSinceEpoch.toString(),
-                          item:      _fmt(_itemCtrl.text.trim()),
-                          qty:       '${_qtyCtrl.text.trim()} Kg',
-                          img:       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
-                          time:      DateTime.now(),
-                          donor:     donorName,
-                          isVeg:     _isVeg,
-                          nutrients: nutrients,
-                        ));
-                        Navigator.pop(context);
-                        _itemCtrl.clear();
-                        _qtyCtrl.clear();
-                        _snack(context, '✅ Food posted successfully!', AppColors.sage);
+                    onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                        try {
+                          await MealService().postMeal(
+                            item:      _fmt(_itemCtrl.text.trim()),
+                            qty:       _qtyCtrl.text.trim(),
+                            isVeg:     _isVeg,
+                            donorName: donorName,
+                          );
+                          Navigator.pop(context);
+                          _itemCtrl.clear();
+                          _qtyCtrl.clear();
+                          _snack(context, '✅ Food posted successfully!', AppColors.sage);
+                        } catch (e) {
+                          _snack(context, 'Error: $e', AppColors.terr);
+                        }
                       }
                     },
                   ),
@@ -252,7 +262,9 @@ class _DonorPostCard extends StatelessWidget {
                 Expanded(child: Text(post.item,
                     style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.w700, fontSize: 15.5))),
-                _StatusBadge(),
+                post.status == 'claimed'
+    ? _ClaimedBadge()
+    : _StatusBadge(),
               ]),
               const SizedBox(height: 6),
 
@@ -439,11 +451,12 @@ class _SharedDrawer extends StatelessWidget {
                     fontWeight: FontWeight.w700, color: AppColors.terr)),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14)),
-            onTap: () {
-              appState.logout();
+            onTap: () async {
+              await appState.logout();
+              if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (r) => false,
+                (r) => false,
               );
             },
           ),
@@ -696,4 +709,26 @@ void _snack(BuildContext context, String msg, Color color) {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     duration: const Duration(seconds: 2),
   ));
+}
+
+class _ClaimedBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.sage.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.sage.withOpacity(0.30)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.check_circle_rounded,
+            size: 10, color: AppColors.sage),
+        const SizedBox(width: 5),
+        const Text('Claimed', style: TextStyle(
+            fontSize: 10.5, color: AppColors.sage,
+            fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
 }
