@@ -229,12 +229,15 @@ class _DonorPostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = post.isVeg ? AppColors.sage : AppColors.terr;
+    final isClaimed = post.status == 'claimed';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
-        border: Border(left: BorderSide(color: accent, width: 3)),
+        border: Border(left: BorderSide(
+            color: isClaimed ? AppColors.amber : accent, width: 3)),
         boxShadow: [
           BoxShadow(color: AppColors.ink.withOpacity(0.05),
               blurRadius: 16, offset: const Offset(0, 4)),
@@ -248,23 +251,24 @@ class _DonorPostCard extends StatelessWidget {
           Container(
             width: 52, height: 52,
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.10),
+              color: (isClaimed ? AppColors.amber : accent).withOpacity(0.10),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(Icons.fastfood_outlined, color: accent, size: 24),
+            child: Icon(Icons.fastfood_outlined,
+                color: isClaimed ? AppColors.amber : accent, size: 24),
           ),
           const SizedBox(width: 14),
 
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                 Expanded(child: Text(post.item,
                     style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.w700, fontSize: 15.5))),
-                post.status == 'claimed'
-    ? _ClaimedBadge()
-    : _StatusBadge(),
+                // Status badge changes based on status
+                isClaimed ? _ClaimedBadge() : _StatusBadge(),
               ]),
               const SizedBox(height: 6),
 
@@ -272,15 +276,18 @@ class _DonorPostCard extends StatelessWidget {
                 Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
                 const SizedBox(width: 4),
                 Text(post.qty,
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.ink2)),
+                    style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.ink2)),
                 const SizedBox(width: 12),
-                Icon(Icons.access_time_rounded, size: 13, color: AppColors.ink3),
+                Icon(Icons.access_time_rounded, size: 13,
+                    color: AppColors.ink3),
                 const SizedBox(width: 4),
                 Text(DateFormat('hh:mm a').format(post.time),
                     style: AppTextStyles.bodySmall),
                 const SizedBox(width: 12),
                 Container(width: 8, height: 8,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: accent)),
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle, color: accent)),
                 const SizedBox(width: 4),
                 Text(post.isVeg ? 'Veg' : 'Non-Veg',
                     style: TextStyle(fontSize: 11.5,
@@ -290,11 +297,70 @@ class _DonorPostCard extends StatelessWidget {
               if (post.nutrients != null) ...[
                 const SizedBox(height: 10),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  _NutrientChip('Protein',  post.nutrients!.protein,  const Color(0xFF5B8DEF)),
-                  _NutrientChip('Carbs',    post.nutrients!.carbs,    AppColors.amber),
-                  _NutrientChip('Fat',      post.nutrients!.fat,      AppColors.terr),
-                  _NutrientChip('Vitamins', post.nutrients!.vitamins, const Color(0xFF8B5CF6)),
+                  _NutrientChip('Protein', post.nutrients!.protein,
+                      const Color(0xFF5B8DEF)),
+                  _NutrientChip('Carbs', post.nutrients!.carbs,
+                      AppColors.amber),
+                  _NutrientChip('Fat', post.nutrients!.fat, AppColors.terr),
+                  _NutrientChip('Vitamins', post.nutrients!.vitamins,
+                      const Color(0xFF8B5CF6)),
                 ]),
+              ],
+
+              // ── Confirm Pickup button (only shows when claimed) ──
+              if (isClaimed) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.amber.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.amber.withOpacity(0.25)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.directions_bike_outlined,
+                        size: 15, color: AppColors.amberDk),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text('NGO is on the way to pick up!',
+                          style: TextStyle(fontSize: 12,
+                              color: AppColors.amberDk,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => _confirmPickupDialog(context),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [
+                        AppColors.amber,
+                        AppColors.amberDk,
+                      ]),
+                      borderRadius: BorderRadius.circular(
+                          AppDimensions.radiusMd),
+                      boxShadow: [BoxShadow(
+                          color: AppColors.amber.withOpacity(0.35),
+                          blurRadius: 12, offset: const Offset(0, 4))],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline_rounded,
+                            color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text('CONFIRM PICKUP',
+                            style: TextStyle(color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13, letterSpacing: 1.2)),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ],
           )),
@@ -302,7 +368,117 @@ class _DonorPostCard extends StatelessWidget {
       ),
     );
   }
+
+  // ── Confirm Pickup Dialog ──────────────────────────────────────
+  void _confirmPickupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22)),
+        backgroundColor: AppColors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 60, height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                    colors: [AppColors.amber, AppColors.amberDk]),
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(
+                    color: AppColors.amber.withOpacity(0.35),
+                    blurRadius: 16, offset: const Offset(0, 5))],
+              ),
+              child: const Icon(Icons.handshake_outlined,
+                  color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 16),
+
+            Text('Confirm Pickup', style: AppTextStyles.sectionHead),
+            const SizedBox(height: 6),
+            Text('Did the NGO successfully pick up:',
+                style: AppTextStyles.bodySmall),
+            const SizedBox(height: 12),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: AppColors.amber.withOpacity(0.22)),
+              ),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(post.item, style: AppTextStyles.body.copyWith(
+                    fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('Qty: ${post.qty}',
+                    style: AppTextStyles.bodySmall),
+              ]),
+            ),
+            const SizedBox(height: 20),
+
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.ink2,
+                    side: BorderSide(color: AppColors.fieldBorder),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                            AppDimensions.radiusMd)),
+                  ),
+                  child: const Text('Not Yet',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    try {
+                      await MealService().confirmPickup(post.id);
+                      Navigator.pop(ctx);
+                      _snack(context,
+                          '🎉 Pickup confirmed! Food reached the needy.',
+                          AppColors.sage);
+                    } catch (e) {
+                      _snack(context, 'Error: $e', AppColors.terr);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                          colors: [AppColors.amber, AppColors.amberDk]),
+                      borderRadius: BorderRadius.circular(
+                          AppDimensions.radiusMd),
+                      boxShadow: [BoxShadow(
+                          color: AppColors.amber.withOpacity(0.28),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4))],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text('Yes, Confirmed!',
+                        style: TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
 }
+
 
 // ─── Shared AppBar ────────────────────────────────────────────────────────────
 class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -717,16 +893,16 @@ class _ClaimedBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.sage.withOpacity(0.12),
+        color: AppColors.amber.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.sage.withOpacity(0.30)),
+        border: Border.all(color: AppColors.amber.withOpacity(0.30)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.check_circle_rounded,
-            size: 10, color: AppColors.sage),
+        const Icon(Icons.directions_bike_outlined,
+            size: 10, color: AppColors.amberDk),
         const SizedBox(width: 5),
         const Text('Claimed', style: TextStyle(
-            fontSize: 10.5, color: AppColors.sage,
+            fontSize: 10.5, color: AppColors.amberDk,
             fontWeight: FontWeight.w700)),
       ]),
     );
