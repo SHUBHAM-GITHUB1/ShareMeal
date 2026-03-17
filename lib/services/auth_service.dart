@@ -131,10 +131,14 @@ class AuthService {
   }
 
   // ── SIGN OUT ─────────────────────────────────────────────────────
-  Future<void> signOut() async {
-    await GoogleSignIn().signOut();   // sign out of Google too
-    await _auth.signOut();
+ Future<void> signOut() async {
+  try {
+    await GoogleSignIn().signOut();
+  } catch (_) {
+    // Google Sign-In not configured for web — safe to ignore
   }
+  await _auth.signOut();
+}
 
   // ── PRIVATE HELPERS ──────────────────────────────────────────────
 

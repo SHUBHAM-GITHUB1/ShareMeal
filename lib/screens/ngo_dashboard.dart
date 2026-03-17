@@ -6,6 +6,7 @@ import '../models/food_post.dart';
 import '../constants/app_theme.dart';
 import 'login_screen.dart';
 import '../services/meal_service.dart';
+import 'auth_wrapper.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});

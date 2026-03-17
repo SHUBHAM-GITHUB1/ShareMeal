@@ -7,6 +7,7 @@ import '../models/app_state.dart';
 import '../models/nutrient_data.dart';
 import '../constants/app_theme.dart';
 import 'login_screen.dart';
+import 'auth_wrapper.dart';
 import '../services/meal_service.dart';
 
 
@@ -629,9 +630,11 @@ class _SharedDrawer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14)),
             onTap: () async {
               await appState.logout();
+              // AuthWrapper automatically detects logout
+              // and redirects to LoginScreen on its own
               if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const AuthWrapper()),
                 (r) => false,
               );
             },
