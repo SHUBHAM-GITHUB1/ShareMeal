@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "262359544294",
+    "project_id": "sharemeal-47aac",
+    "storage_bucket": "sharemeal-47aac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:262359544294:android:cac4f6ea5d0cead079e627",
+        "android_client_info": {
+          "package_name": "com.example.sharemeal"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "262359544294-ht3lp6nnpo3br3hcj60cq3qdat4cgi7u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCv3ujC8XLncj4zHsWTwiR_drtykEiwNQA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "262359544294-ht3lp6nnpo3br3hcj60cq3qdat4cgi7u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

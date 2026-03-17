@@ -5,6 +5,7 @@ import '../constants/app_theme.dart';
 import 'donor_dashboard.dart';
 import 'ngo_dashboard.dart';
 import 'dart:ui';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +20,8 @@ class _LoginScreenState extends State<LoginScreen>
   final _password = TextEditingController();
   final _org      = TextEditingController();
   final _addr     = TextEditingController();
-
+  final _authService = AuthService();
+  bool  _loading     = false;
   bool   _isLogin = true;
   bool   _obscure = true;
   String _role    = 'Donor';
@@ -83,25 +85,81 @@ class _LoginScreenState extends State<LoginScreen>
     _cardCtrl.forward();
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    Provider.of<AppState>(context, listen: false).setUser(UserProfile(
-      email:   _email.text.trim(),
-      orgName: _org.text.trim().isEmpty ? 'Organization' : _org.text.trim(),
-      address: _addr.text.trim(),
-      role:    _role,
-    ));
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (_, anim, __) => FadeTransition(
-          opacity: anim,
-          child: _role == 'Donor' ? const DonorDashboard() : const NGODashboard(),
+  void _submit() async {
+  if (!_formKey.currentState!.validate()) return;
+
+  setState(() => _loading = true);
+
+  try {
+    if (_isLogin) {
+      // ── Sign In ────────────────────────────────────────────
+      final data = await _authService.signIn(
+        email:    _email.text.trim(),
+        password: _password.text,
+      );
+
+      if (!mounted) return;
+
+      // Save user to AppState so all screens can access it
+      Provider.of<AppState>(context, listen: false)
+          .setUser(UserProfile.fromMap(data));
+
+      // Go to the right dashboard based on role
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 500),
+          pageBuilder: (_, anim, __) => FadeTransition(
+            opacity: anim,
+            child: data['role'] == 'Donor'
+                ? const DonorDashboard()
+                : const NGODashboard(),
+          ),
         ),
+      );
+
+    } else {
+      // ── Sign Up ────────────────────────────────────────────
+      await _authService.signUp(
+        email:    _email.text.trim(),
+        password: _password.text,
+        orgName:  _org.text.trim().isEmpty
+                      ? 'Organization'
+                      : _org.text.trim(),
+        address:  _addr.text.trim(),
+        role:     _role,             // 'Donor' or 'NGO' from toggle
+      );
+
+      if (!mounted) return;
+
+      // After signup, ask them to sign in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Account created! Please sign in.'),
+          backgroundColor: AppColors.sage,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // Switch to login mode automatically
+      setState(() => _isLogin = true);
+    }
+
+  } catch (e) {
+    // Show whatever error message Firebase gives us
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.terr,
+        behavior: SnackBarBehavior.floating,
       ),
     );
+  } finally {
+    // Always stop the loading spinner
+    if (mounted) setState(() => _loading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +309,40 @@ class _LoginScreenState extends State<LoginScreen>
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
-                        onTap: () {},
+                        onTap: () async {
+                          // Make sure they've typed an email first
+                          if (_email.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter your email address first.'),
+                                backgroundColor: AppColors.terr,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+
+                          try {
+                            await _authService.sendPasswordResetEmail(_email.text.trim());
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('✅ Reset email sent to ${_email.text.trim()}'),
+                                backgroundColor: AppColors.sage,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: AppColors.terr,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
                         child: Text('Forgot password?',
                             style: AppTextStyles.forgotLink),
                       ),
@@ -260,9 +351,11 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 22),
 
                   _GlowCTAButton(
-                    label: _isLogin ? 'SIGN IN' : 'CREATE ACCOUNT',
+                    label: _loading
+                        ? 'Please wait...'
+                        : (_isLogin ? 'SIGN IN' : 'CREATE ACCOUNT'),
                     glowAnim: _glowAnim,
-                    onPressed: _submit,
+                    onPressed: _loading ? () {} : _submit,
                   ),
                   const SizedBox(height: 20),
 
@@ -282,14 +375,42 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 14),
 
                   Row(children: [
-                    Expanded(child: _SocialBtn(label: 'Google',
-                        icon: Icons.g_mobiledata_rounded,
-                        iconColor: const Color(0xFF4285F4))),
-                    const SizedBox(width: 10),
-                    Expanded(child: _SocialBtn(label: 'Facebook',
-                        icon: Icons.facebook_rounded,
-                        iconColor: const Color(0xFF1877F2))),
-                  ]),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          try {
+                            final data = await _authService.signInWithGoogle(role: _role);
+                            if (data == null || !mounted) return;
+
+                            Provider.of<AppState>(context, listen: false)
+                                .setUser(UserProfile.fromMap(data));
+
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => data['role'] == 'Donor'
+                                    ? const DonorDashboard()
+                                    : const NGODashboard(),
+                              ),
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: AppColors.terr,
+                              ),
+                            );
+                          }
+                        },
+                        child: _SocialBtn(
+                          label: 'Google',
+                          icon: Icons.g_mobiledata_rounded,
+                          iconColor: const Color(0xFF4285F4),
+                        ),
+                      ),
+                    ),
+                          ]),
                   const SizedBox(height: 20),
 
                   Center(
