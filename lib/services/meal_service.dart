@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sharemeal/models/food_post.dart';
 import 'package:sharemeal/services/nutrition_service.dart';
+import 'package:sharemeal/services/image_service.dart';
+import 'package:sharemeal/services/notification_service.dart';
 
 class MealService {
   final _db   = FirebaseFirestore.instance;
@@ -20,25 +22,46 @@ Future<void> confirmPickup(String mealId) async {
     required String qty,
     required bool isVeg,
     required String donorName,
+    String? imageBase64,
+    double? lat,
+    double? lng,
+    String? locationAddress,
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) throw Exception('Not authenticated');
 
-    // Fetch nutrition from API Ninjas (falls back to local if offline)
     final nutrients = await NutritionService().getNutrients(item);
+    final bool hasCustomImg = imageBase64 != null && imageBase64.isNotEmpty;
 
-    await _db.collection('meals').add({
-      'donorId':   uid,
-      'donorName': donorName,
-      'item':      item,
-      'qty':       '$qty Kg',
-      'isVeg':     isVeg,
-      'img':       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
-      'status':    'available',
-      'claimedBy': null,
-      'postedAt':  FieldValue.serverTimestamp(),
-      'nutrients': nutrients.toMap(),
+    final ref = await _db.collection('meals').add({
+      'donorId':         uid,
+      'donorName':       donorName,
+      'item':            item,
+      'qty':             '$qty Kg',
+      'isVeg':           isVeg,
+      'img':             hasCustomImg ? imageBase64 : ImageService.foodImageUrl(item),
+      'imgIsBase64':     hasCustomImg,
+      'status':          'available',
+      'claimedBy':       null,
+      'postedAt':        FieldValue.serverTimestamp(),
+      'nutrients':       nutrients.toMap(),
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (locationAddress != null) 'locationAddress': locationAddress,
     });
+
+    // Notify nearby NGOs if donor provided a location
+    if (lat != null && lng != null) {
+      await NotificationService().notifyNearbyNGOs(
+        mealId:          ref.id,
+        donorName:       donorName,
+        item:            item,
+        qty:             '$qty Kg',
+        donorLat:        lat,
+        donorLng:        lng,
+        locationAddress: locationAddress,
+      );
+    }
   }
 
   // ── Live stream of available meals (NGO sees this) ───────────────

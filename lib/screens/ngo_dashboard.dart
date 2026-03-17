@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -5,7 +7,12 @@ import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/models/food_post.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/login_screen.dart';
+import 'package:sharemeal/screens/map_picker_screen.dart';
 import 'package:sharemeal/services/meal_service.dart';
+import 'package:sharemeal/services/notification_service.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});
@@ -14,6 +21,29 @@ class NGODashboard extends StatefulWidget {
 }
 
 class _NGODashboardState extends State<NGODashboard> {
+  final _notifService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    _saveLocation();
+  }
+
+  Future<void> _saveLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getCurrentPosition();
+      await _notifService.saveMyLocation(pos.latitude, pos.longitude);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
@@ -40,6 +70,43 @@ class _NGODashboardState extends State<NGODashboard> {
               const SizedBox(width: 5),
               Text('LIVE', style: AppTextStyles.liveLabel),
             ]),
+          ),
+          // Notification bell
+          StreamBuilder<List<MealNotification>>(
+            stream: _notifService.streamMyNotifications(),
+            builder: (context, snap) {
+              final unread = (snap.data ?? [])
+                  .where((n) => !n.read)
+                  .length;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, size: 24),
+                    onPressed: () => _showNotificationsPanel(
+                        context, snap.data ?? []),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      right: 8, top: 8,
+                      child: Container(
+                        width: 16, height: 16,
+                        decoration: const BoxDecoration(
+                          color: AppColors.terr,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          unread > 9 ? '9+' : '$unread',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 22),
@@ -72,13 +139,120 @@ class _NGODashboardState extends State<NGODashboard> {
 ),
     );
   }
+  void _showNotificationsPanel(
+      BuildContext context, List<MealNotification> notifs) {
+    // Mark all as read
+    final unreadIds =
+        notifs.where((n) => !n.read).map((n) => n.id).toList();
+    if (unreadIds.isNotEmpty) _notifService.markAllRead(unreadIds);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        maxChildSize: 0.90,
+        minChildSize: 0.35,
+        builder: (_, ctrl) => Container(
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                    color: AppColors.fieldBorder,
+                    borderRadius: BorderRadius.circular(4)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Row(children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      gradient: AppGradients.sageButton,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.notifications_rounded,
+                        color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('Nearby Surplus Alerts',
+                      style: AppTextStyles.sectionHead),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: notifs.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.notifications_off_outlined,
+                                size: 48, color: AppColors.ink3),
+                            const SizedBox(height: 12),
+                            Text('No alerts yet',
+                                style: AppTextStyles.bodyMuted),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        controller: ctrl,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        itemCount: notifs.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (_, i) =>
+                            _NotifTile(notif: notifs[i]),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Food Card ────────────────────────────────────────────────────────────────
-class _FoodCard extends StatelessWidget {
+class _FoodCard extends StatefulWidget {
   final FoodPost post;
   final int index;
   const _FoodCard({required this.post, required this.index});
+  @override
+  State<_FoodCard> createState() => _FoodCardState();
+}
+
+class _FoodCardState extends State<_FoodCard> {
+  late FoodPost _post;
+
+  @override
+  void initState() {
+    super.initState();
+    _post = widget.post;
+    if (_post.needsNutrientRefetch) _refetch();
+  }
+
+  @override
+  void didUpdateWidget(_FoodCard old) {
+    super.didUpdateWidget(old);
+    if (widget.post.id != old.post.id ||
+        (widget.post.needsNutrientRefetch && !old.post.needsNutrientRefetch)) {
+      _post = widget.post;
+      if (_post.needsNutrientRefetch) _refetch();
+    }
+  }
+
+  Future<void> _refetch() async {
+    final fresh = await _post.withFreshNutrients();
+    if (mounted) setState(() => _post = fresh);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,18 +273,9 @@ class _FoodCard extends StatelessWidget {
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: Stack(children: [
-            Image.network(
-              post.img, height: 170, width: double.infinity, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: 170, color: AppColors.sageBg,
-                child: const Center(child: Icon(Icons.fastfood_outlined,
-                    size: 52, color: AppColors.sage)),
-              ),
-              loadingBuilder: (_, child, progress) => progress == null
-                  ? child
-                  : Container(height: 170, color: AppColors.sageBg,
-                      child: const Center(child: CircularProgressIndicator(
-                          color: AppColors.sage, strokeWidth: 2))),
+            SizedBox(
+              height: 170, width: double.infinity,
+              child: _FoodImage(img: _post.img, isBase64: _post.imgIsBase64),
             ),
             // Veg badge
             Positioned(
@@ -118,7 +283,7 @@ class _FoodCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: (post.isVeg ? AppColors.sage : AppColors.terr)
+                  color: (_post.isVeg ? AppColors.sage : AppColors.terr)
                       .withOpacity(0.88),
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -127,7 +292,7 @@ class _FoodCard extends StatelessWidget {
                       decoration: const BoxDecoration(
                           shape: BoxShape.circle, color: Colors.white)),
                   const SizedBox(width: 5),
-                  Text(post.isVeg ? 'Veg' : 'Non-Veg',
+                  Text(_post.isVeg ? 'Veg' : 'Non-Veg',
                       style: const TextStyle(fontSize: 10.5,
                           color: Colors.white, fontWeight: FontWeight.w700)),
                 ]),
@@ -158,7 +323,7 @@ class _FoodCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Expanded(child: Text(post.item,
+              Expanded(child: Text(_post.item,
                   style: AppTextStyles.sectionHead.copyWith(fontSize: 18))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -167,7 +332,7 @@ class _FoodCard extends StatelessWidget {
                   border: Border.all(color: AppColors.amber.withOpacity(0.30)),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(post.qty, style: const TextStyle(fontSize: 12,
+                child: Text(_post.qty, style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w700, color: AppColors.amberDk)),
               ),
             ]),
@@ -176,28 +341,61 @@ class _FoodCard extends StatelessWidget {
             Row(children: [
               const Icon(Icons.business_outlined, size: 13, color: AppColors.ink3),
               const SizedBox(width: 4),
-              Expanded(child: Text(post.donor, style: AppTextStyles.bodySmall)),
+              Expanded(child: Text(_post.donor, style: AppTextStyles.bodySmall)),
               const Icon(Icons.access_time_rounded, size: 13, color: AppColors.ink3),
               const SizedBox(width: 4),
-              Text(DateFormat('hh:mm a').format(post.time),
+              Text(DateFormat('hh:mm a').format(_post.time),
                   style: AppTextStyles.bodySmall),
             ]),
 
-            if (post.nutrients != null) ...[
+            if (_post.nutrients != null) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [
-                _NutrientChip('🔥 Cal',  post.nutrients!.caloriesStr, Colors.deepOrange),
-                _NutrientChip('Protein', post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
-                _NutrientChip('Carbs',   post.nutrients!.carbsStr,    AppColors.amber),
-                _NutrientChip('Fat',     post.nutrients!.fatStr,      AppColors.terr),
+                _NutrientChip('🔥 Cal',  _post.nutrients!.caloriesStr, Colors.deepOrange),
+                _NutrientChip('Protein', _post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
+                _NutrientChip('Carbs',   _post.nutrients!.carbsStr,    AppColors.amber),
+                _NutrientChip('Fat',     _post.nutrients!.fatStr,      AppColors.terr),
               ]),
+            ],
+
+            // Location row
+            if (_post.hasLocation) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _openDonorMap(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppColors.sage.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.sage.withOpacity(0.22)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.location_on_rounded,
+                        size: 15, color: AppColors.sage),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _post.locationAddress ?? 'View pickup location',
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.sage,
+                            fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.map_outlined,
+                        size: 15, color: AppColors.sage),
+                  ]),
+                ),
+              ),
             ],
 
             const SizedBox(height: 14),
 
             // Claim button
             GestureDetector(
-              onTap: () => _showDetails(context, post, index),
+              onTap: () => _showDetails(context, _post, widget.index),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -223,6 +421,15 @@ class _FoodCard extends StatelessWidget {
           ]),
         ),
       ]),
+    );
+  }
+
+  void _openDonorMap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _DonorLocationMapScreen(post: _post),
+      ),
     );
   }
 
@@ -333,6 +540,38 @@ class _FoodCard extends StatelessWidget {
               ]),
             ),
 
+            // View on Map button (only if location is set)
+            if (post.hasLocation) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openDonorMap(context);
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.sage.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                    border: Border.all(color: AppColors.sage.withOpacity(0.30)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.map_rounded, color: AppColors.sage, size: 17),
+                      SizedBox(width: 8),
+                      Text('View Pickup Location on Map',
+                          style: TextStyle(
+                              color: AppColors.sage,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 20),
             Row(children: [
               Expanded(
@@ -382,8 +621,8 @@ class _FoodCard extends StatelessWidget {
   }
 
   void _confirmClaim(BuildContext context) {
-    final p = post;
-    
+    final p = _post;
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -451,7 +690,7 @@ class _FoodCard extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () async {
                     try {
-                      await MealService().claimMeal(post.id);
+                      await MealService().claimMeal(_post.id);
                       Navigator.pop(ctx);
                       _snack(context, '✅ Food claimed! Donor has been notified', AppColors.sage);
                     } catch (e) {
@@ -797,6 +1036,44 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
+// ─── Food Image (handles both base64 and URL) ─────────────────────────────────
+class _FoodImage extends StatelessWidget {
+  final String img;
+  final bool isBase64;
+  const _FoodImage({required this.img, required this.isBase64});
+
+  @override
+  Widget build(BuildContext context) {
+    if (isBase64 && img.isNotEmpty) {
+      return Image.memory(
+        base64Decode(img),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
+    }
+    return Image.network(
+      img,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      errorBuilder: (_, __, ___) => _placeholder(),
+      loadingBuilder: (_, child, progress) => progress == null
+          ? child
+          : Container(
+              color: AppColors.sageBg,
+              child: const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.sage, strokeWidth: 2))),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        color: AppColors.sageBg,
+        child: const Center(
+            child: Icon(Icons.fastfood_outlined, size: 40, color: AppColors.sage)),
+      );
+}
+
 void _snack(BuildContext context, String msg, Color color) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Text(msg),
@@ -805,4 +1082,276 @@ void _snack(BuildContext context, String msg, Color color) {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     duration: const Duration(seconds: 2),
   ));
+}
+
+// ─── Donor Location Map Screen ─────────────────────────────────────────────────
+class _DonorLocationMapScreen extends StatelessWidget {
+  final FoodPost post;
+  const _DonorLocationMapScreen({required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = LatLng(post.lat!, post.lng!);
+    return Scaffold(
+      body: Stack(children: [
+        FlutterMap(
+          options: MapOptions(initialCenter: loc, initialZoom: 15),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.sharemeal.app',
+              maxZoom: 19,
+              additionalOptions: const {
+                'crossOrigin': 'anonymous',
+              },
+            ),
+            MarkerLayer(markers: [
+              Marker(
+                point: loc,
+                width: 48,
+                height: 56,
+                child: Column(children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      gradient: AppGradients.sageButton,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(
+                          color: AppColors.sage.withOpacity(0.45),
+                          blurRadius: 10, offset: const Offset(0, 4))],
+                    ),
+                    child: const Icon(Icons.restaurant_rounded,
+                        color: Colors.white, size: 18),
+                  ),
+                  CustomPaint(
+                    size: const Size(12, 8),
+                    painter: _PinTailPainter(),
+                  ),
+                ]),
+              ),
+            ]),
+          ],
+        ),
+
+        // Top bar
+        Positioned(
+          top: 0, left: 0, right: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: AppGradients.heroBar,
+              boxShadow: [BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded,
+                        color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Pickup Location',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Georgia',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16)),
+                        Text(post.donor,
+                            style: const TextStyle(
+                                color: Color(0xCCFFFFFF), fontSize: 11.5)),
+                      ],
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+
+        // Bottom info card
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 20, offset: const Offset(0, -4))],
+            ),
+            padding: EdgeInsets.fromLTRB(
+                20, 16, 20,
+                MediaQuery.of(context).padding.bottom + 16),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.fieldBorder,
+                    borderRadius: BorderRadius.circular(4)),
+              ),
+              const SizedBox(height: 14),
+              Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.sageButton,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.restaurant_rounded,
+                      color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(post.item,
+                      style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text('${post.qty}  •  From: ${post.donor}',
+                      style: AppTextStyles.bodySmall),
+                ])),
+              ]),
+              if (post.locationAddress != null) ...[
+                const SizedBox(height: 10),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.location_on_rounded,
+                      size: 15, color: AppColors.sage),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(post.locationAddress!,
+                        style: AppTextStyles.bodySmall
+                            .copyWith(color: AppColors.ink2)),
+                  ),
+                ]),
+              ],
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.my_location_rounded,
+                    size: 13, color: AppColors.ink3),
+                const SizedBox(width: 5),
+                Text(
+                  '${post.lat!.toStringAsFixed(5)}, '
+                  '${post.lng!.toStringAsFixed(5)}',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(fontSize: 10.5, color: AppColors.ink3),
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Notification Tile ───────────────────────────────────────────────────────
+class _NotifTile extends StatelessWidget {
+  final MealNotification notif;
+  const _NotifTile({required this.notif});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: notif.read
+            ? AppColors.fieldBg
+            : AppColors.sage.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: notif.read
+              ? AppColors.fieldBorder
+              : AppColors.sage.withOpacity(0.30),
+        ),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 38, height: 38,
+          decoration: BoxDecoration(
+            gradient: AppGradients.sageButton,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.restaurant_rounded,
+              color: Colors.white, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(
+                child: Text(notif.item,
+                    style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w700, fontSize: 14)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.sage.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '📍 ${notif.distanceKm} km',
+                  style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.sage),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 3),
+            Text('${notif.qty}  •  From: ${notif.donorName}',
+                style: AppTextStyles.bodySmall),
+            if (notif.locationAddress != null) ...[
+              const SizedBox(height: 3),
+              Row(children: [
+                const Icon(Icons.location_on_rounded,
+                    size: 12, color: AppColors.ink3),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    notif.locationAddress!,
+                    style: AppTextStyles.bodySmall.copyWith(fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ]),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              DateFormat('hh:mm a · dd MMM').format(notif.time),
+              style: AppTextStyles.bodySmall
+                  .copyWith(fontSize: 10.5, color: AppColors.ink3),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Pin tail painter (reused from MapPickerScreen) ────────────────────────────
+class _PinTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.sage
+      ..style = PaintingStyle.fill;
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+  @override
+  bool shouldRepaint(_) => false;
 }

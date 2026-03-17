@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +7,10 @@ import 'package:sharemeal/models/food_post.dart';
 import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/auth_wrapper.dart';
+import 'package:sharemeal/screens/map_picker_screen.dart';
 import 'package:sharemeal/services/meal_service.dart';
+import 'package:sharemeal/services/image_service.dart';
+import 'package:latlong2/latlong.dart';
 
 
 class DonorDashboard extends StatefulWidget {
@@ -19,7 +23,9 @@ class _DonorDashboardState extends State<DonorDashboard> {
   final _formKey  = GlobalKey<FormState>();
   final _itemCtrl = TextEditingController();
   final _qtyCtrl  = TextEditingController();
-  bool _isVeg     = true;
+  bool _isVeg        = true;
+  String? _pickedImageB64;
+  PickedLocation? _pickedLocation;
 
   @override
   void dispose() {
@@ -72,7 +78,11 @@ class _DonorDashboardState extends State<DonorDashboard> {
   }
 
   void _showForm(BuildContext context, String donorName) {
-    setState(() => _isVeg = true);
+    setState(() {
+      _isVeg = true;
+      _pickedImageB64 = null;
+      _pickedLocation = null;
+    });
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -89,7 +99,8 @@ class _DonorDashboardState extends State<DonorDashboard> {
           ),
           child: Form(
             key: _formKey,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
               Center(
                 child: Container(
                   width: 40, height: 4,
@@ -153,6 +164,140 @@ class _DonorDashboardState extends State<DonorDashboard> {
               ),
               const SizedBox(height: 16),
 
+              // ── Image Picker ──────────────────────────────────────
+              Text('FOOD PHOTO', style: AppTextStyles.fieldLabel),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => _showImageSourceSheet(context, setModal),
+                child: Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.fieldBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.fieldBorder),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _pickedImageB64 != null
+                      ? Stack(fit: StackFit.expand, children: [
+                          Image.memory(
+                            base64Decode(_pickedImageB64!),
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            top: 6, right: 6,
+                            child: GestureDetector(
+                              onTap: () => setModal(() => _pickedImageB64 = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Icon(Icons.close, color: Colors.white, size: 14),
+                              ),
+                            ),
+                          ),
+                        ])
+                      : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.add_photo_alternate_outlined,
+                              size: 32, color: AppColors.ink3),
+                          const SizedBox(height: 6),
+                          Text('Tap to add photo',
+                              style: AppTextStyles.bodySmall),
+                          const SizedBox(height: 2),
+                          Text('Or we\'ll fetch one automatically',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  fontSize: 10.5, color: AppColors.ink3)),
+                        ]),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Location Picker ────────────────────────────────────
+              Text('PICKUP LOCATION', style: AppTextStyles.fieldLabel),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push<PickedLocation>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MapPickerScreen(
+                        initial: _pickedLocation?.latLng,
+                      ),
+                    ),
+                  );
+                  if (result != null) {
+                    setState(() => _pickedLocation = result);
+                    setModal(() => _pickedLocation = result);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.fieldBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _pickedLocation != null
+                          ? AppColors.sage
+                          : AppColors.fieldBorder,
+                    ),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 34, height: 34,
+                      decoration: BoxDecoration(
+                        color: _pickedLocation != null
+                            ? AppColors.sage.withOpacity(0.12)
+                            : AppColors.fieldBorder.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(
+                        _pickedLocation != null
+                            ? Icons.location_on_rounded
+                            : Icons.add_location_alt_outlined,
+                        color: _pickedLocation != null
+                            ? AppColors.sage
+                            : AppColors.ink3,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _pickedLocation != null
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Location set',
+                                    style: AppTextStyles.body.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.sage,
+                                        fontSize: 13)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _pickedLocation!.address,
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                      fontSize: 11.5),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            )
+                          : Text('Tap to set pickup location on map',
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(fontSize: 13)),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.ink3, size: 20,
+                    ),
+                  ]),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -194,14 +339,22 @@ class _DonorDashboardState extends State<DonorDashboard> {
                         if (_formKey.currentState!.validate()) {
                         try {
                           await MealService().postMeal(
-                            item:      _fmt(_itemCtrl.text.trim()),
-                            qty:       _qtyCtrl.text.trim(),
-                            isVeg:     _isVeg,
-                            donorName: donorName,
+                            item:            _fmt(_itemCtrl.text.trim()),
+                            qty:             _qtyCtrl.text.trim(),
+                            isVeg:           _isVeg,
+                            donorName:       donorName,
+                            imageBase64:     _pickedImageB64,
+                            lat:             _pickedLocation?.latLng.latitude,
+                            lng:             _pickedLocation?.latLng.longitude,
+                            locationAddress: _pickedLocation?.address,
                           );
                           Navigator.pop(context);
                           _itemCtrl.clear();
                           _qtyCtrl.clear();
+                          setState(() {
+                            _pickedImageB64 = null;
+                            _pickedLocation = null;
+                          });
                           _snack(context, '✅ Food posted successfully!', AppColors.sage);
                         } catch (e) {
                           _snack(context, 'Error: $e', AppColors.terr);
@@ -212,23 +365,115 @@ class _DonorDashboardState extends State<DonorDashboard> {
                 ),
               ]),
             ]),
+            ),
           ),
         ),
       ),
     );
   }
-}
+
+  void _showImageSourceSheet(BuildContext context, StateSetter setModal) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.fieldBorder,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.sage.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.photo_library_outlined, color: AppColors.sage),
+            ),
+            title: const Text('Choose from Gallery',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            onTap: () async {
+              Navigator.pop(context);
+              final b64 = await ImageService.pickFromGallery();
+              if (b64 != null) {
+                setState(() => _pickedImageB64 = b64);
+                setModal(() => _pickedImageB64 = b64);
+              }
+            },
+          ),
+          ListTile(
+            leading: Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.sage.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.camera_alt_outlined, color: AppColors.sage),
+            ),
+            title: const Text('Take a Photo',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            onTap: () async {
+              Navigator.pop(context);
+              final b64 = await ImageService.pickFromCamera();
+              if (b64 != null) {
+                setState(() => _pickedImageB64 = b64);
+                setModal(() => _pickedImageB64 = b64);
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+} // end _DonorDashboardState
 
 // ─── Donor Post Card ──────────────────────────────────────────────────────────
-class _DonorPostCard extends StatelessWidget {
+class _DonorPostCard extends StatefulWidget {
   final FoodPost post;
   final int index;
   const _DonorPostCard({required this.post, required this.index});
+  @override
+  State<_DonorPostCard> createState() => _DonorPostCardState();
+}
+
+class _DonorPostCardState extends State<_DonorPostCard> {
+  late FoodPost _post;
+
+  @override
+  void initState() {
+    super.initState();
+    _post = widget.post;
+    if (_post.needsNutrientRefetch) _refetch();
+  }
+
+  @override
+  void didUpdateWidget(_DonorPostCard old) {
+    super.didUpdateWidget(old);
+    if (widget.post.id != old.post.id ||
+        (widget.post.needsNutrientRefetch && !old.post.needsNutrientRefetch)) {
+      _post = widget.post;
+      if (_post.needsNutrientRefetch) _refetch();
+    }
+  }
+
+  Future<void> _refetch() async {
+    final fresh = await _post.withFreshNutrients();
+    if (mounted) setState(() => _post = fresh);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accent = post.isVeg ? AppColors.sage : AppColors.terr;
-    final isClaimed = post.status == 'claimed';
+    final accent = _post.isVeg ? AppColors.sage : AppColors.terr;
+    final isClaimed = _post.status == 'claimed';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -244,29 +489,28 @@ class _DonorPostCard extends StatelessWidget {
               blurRadius: 6, offset: const Offset(0, 1)),
         ],
       ),
-      child: Padding(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Food image thumbnail ──
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: SizedBox(
+            height: 140, width: double.infinity,
+            child: _FoodImage(img: _post.img, isBase64: _post.imgIsBase64),
+          ),
+        ),
+        Padding(
         padding: const EdgeInsets.all(16),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              color: (isClaimed ? AppColors.amber : accent).withOpacity(0.10),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(Icons.fastfood_outlined,
-                color: isClaimed ? AppColors.amber : accent, size: 24),
-          ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 2),
 
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                Expanded(child: Text(post.item,
+                Expanded(child: Text(_post.item,
                     style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.w700, fontSize: 15.5))),
-                // Status badge changes based on status
                 isClaimed ? _ClaimedBadge() : _StatusBadge(),
               ]),
               const SizedBox(height: 6),
@@ -274,32 +518,32 @@ class _DonorPostCard extends StatelessWidget {
               Row(children: [
                 Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
                 const SizedBox(width: 4),
-                Text(post.qty,
+                Text(_post.qty,
                     style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.ink2)),
                 const SizedBox(width: 12),
                 Icon(Icons.access_time_rounded, size: 13,
                     color: AppColors.ink3),
                 const SizedBox(width: 4),
-                Text(DateFormat('hh:mm a').format(post.time),
+                Text(DateFormat('hh:mm a').format(_post.time),
                     style: AppTextStyles.bodySmall),
                 const SizedBox(width: 12),
                 Container(width: 8, height: 8,
                     decoration: BoxDecoration(
                         shape: BoxShape.circle, color: accent)),
                 const SizedBox(width: 4),
-                Text(post.isVeg ? 'Veg' : 'Non-Veg',
+                Text(_post.isVeg ? 'Veg' : 'Non-Veg',
                     style: TextStyle(fontSize: 11.5,
                         fontWeight: FontWeight.w600, color: accent)),
               ]),
 
-              if (post.nutrients != null) ...[
+              if (_post.nutrients != null) ...[
                 const SizedBox(height: 10),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  _NutrientChip('🔥 Cal',    post.nutrients!.caloriesStr, Colors.deepOrange),
-                  _NutrientChip('Protein',   post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
-                  _NutrientChip('Carbs',     post.nutrients!.carbsStr,    AppColors.amber),
-                  _NutrientChip('Fat',       post.nutrients!.fatStr,      AppColors.terr),
+                  _NutrientChip('🔥 Cal',    _post.nutrients!.caloriesStr, Colors.deepOrange),
+                  _NutrientChip('Protein',   _post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
+                  _NutrientChip('Carbs',     _post.nutrients!.carbsStr,    AppColors.amber),
+                  _NutrientChip('Fat',       _post.nutrients!.fatStr,      AppColors.terr),
                 ]),
               ],
 
@@ -361,7 +605,8 @@ class _DonorPostCard extends StatelessWidget {
             ],
           )),
         ]),
-      ),
+        ), // end inner Padding
+      ]), // end Column
     );
   }
 
@@ -409,10 +654,10 @@ class _DonorPostCard extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(post.item, style: AppTextStyles.body.copyWith(
+                Text(_post.item, style: AppTextStyles.body.copyWith(
                     fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text('Qty: ${post.qty}',
+                Text('Qty: ${_post.qty}',
                     style: AppTextStyles.bodySmall),
               ]),
             ),
@@ -439,7 +684,7 @@ class _DonorPostCard extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () async {
                     try {
-                      await MealService().confirmPickup(post.id);
+                      await MealService().confirmPickup(_post.id);
                       Navigator.pop(ctx);
                       _snack(context,
                           '🎉 Pickup confirmed! Food reached the needy.',
@@ -873,6 +1118,44 @@ class _DrawerItem extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Food Image (handles both base64 and URL) ───────────────────────────────
+class _FoodImage extends StatelessWidget {
+  final String img;
+  final bool isBase64;
+  const _FoodImage({required this.img, required this.isBase64});
+
+  @override
+  Widget build(BuildContext context) {
+    if (isBase64 && img.isNotEmpty) {
+      return Image.memory(
+        base64Decode(img),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
+    }
+    return Image.network(
+      img,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      errorBuilder: (_, __, ___) => _placeholder(),
+      loadingBuilder: (_, child, progress) => progress == null
+          ? child
+          : Container(
+              color: AppColors.sageBg,
+              child: const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.sage, strokeWidth: 2))),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        color: AppColors.sageBg,
+        child: const Center(
+            child: Icon(Icons.fastfood_outlined, size: 40, color: AppColors.sage)),
+      );
 }
 
 void _snack(BuildContext context, String msg, Color color) {

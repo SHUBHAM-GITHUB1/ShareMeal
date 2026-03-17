@@ -10,11 +10,11 @@ class NutritionService {
   Future<NutrientInfo> getNutrients(String foodItem) async {
     // 1️⃣ Try API Ninjas
     final ninja = await _fromNinjas(foodItem);
-    if (ninja != null && _isValid(ninja, foodItem)) return ninja;
+    if (ninja != null && ninja.calories > 0) return ninja;
 
     // 2️⃣ Try Open Food Facts
     final off = await _fromOpenFoodFacts(foodItem);
-    if (off != null && _isValid(off, foodItem)) return off;
+    if (off != null && off.calories > 0) return off;
 
     // 3️⃣ Local DB → generic default
     return NutrientData.getNutrients(foodItem) ??
@@ -23,21 +23,6 @@ class NutritionService {
           fiber: 2.0,    sugar: 3.0,   sodium: 100,  cholesterol: 0,
           servingSize: 100, source: 'local',
         );
-  }
-
-  // Zero-carb foods that genuinely have no carbs (pure proteins/fats)
-  static const _zeroCarbFoods = {
-    'chicken', 'mutton', 'beef', 'pork', 'lamb', 'fish', 'salmon',
-    'tuna', 'prawn', 'shrimp', 'egg', 'butter', 'ghee', 'oil',
-  };
-
-  /// Valid = calories > 0 AND carbs > 0, UNLESS it's a known zero-carb food.
-  bool _isValid(NutrientInfo n, String foodItem) {
-    if (n.calories == 0) return false;
-    if (n.carbs > 0) return true;
-    // carbs == 0: only accept if it's a known zero-carb food
-    final key = foodItem.toLowerCase();
-    return _zeroCarbFoods.any((f) => key.contains(f));
   }
 
   // ── API Ninjas ────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/food_post.dart';
@@ -52,7 +53,22 @@ class FoodCard extends StatelessWidget {
                   top: Radius.circular(AppDimensions.radiusXl)),
               child: Stack(
                 children: [
-                  Image.network(
+                  post.imgIsBase64 && post.img.isNotEmpty
+                      ? Image.memory(
+                          base64Decode(post.img),
+                          height: AppDimensions.imageHeight,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: AppDimensions.imageHeight,
+                            color: AppColors.sageBg,
+                            child: const Center(
+                              child: Icon(Icons.fastfood_outlined,
+                                  size: 48, color: AppColors.sage),
+                            ),
+                          ),
+                        )
+                      : Image.network(
                     post.img,
                     height: AppDimensions.imageHeight,
                     width: double.infinity,

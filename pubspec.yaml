@@ -19,6 +19,11 @@ dependencies:
   google_sign_in: ^6.2.1
   cloud_firestore: ^5.4.4
   http: ^1.2.0
+  image_picker: ^1.1.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:
