@@ -38,7 +38,7 @@ class AppState with ChangeNotifier {
 
   // Temporary stubs — will be replaced in Phase 3
   final List<dynamic> allPosts = [];
-  void addPost(dynamic post) {}
+  void addPost(dynamic post) {}//dflsjdlfijdslfjlsdfa
   void removePost(int index) {}
 
   // ── Getters (read-only access to private variables) ──────────────
