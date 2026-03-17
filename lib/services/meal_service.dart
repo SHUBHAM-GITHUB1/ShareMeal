@@ -6,6 +6,13 @@ class MealService {
   final _db   = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
+  // ── Donor confirms food was picked up ───────────────────────────
+Future<void> confirmPickup(String mealId) async {
+  await _db.collection('meals').doc(mealId).update({
+    'status':      'completed',
+    'completedAt': FieldValue.serverTimestamp(),
+  });
+}
   // ── Post a new food donation to Firestore ────────────────────────
   Future<void> postMeal({
     required String item,
@@ -42,15 +49,15 @@ class MealService {
 
   // ── Live stream of THIS donor's meals only ───────────────────────
   Stream<List<FoodPost>> streamMyMeals() {
-    final uid = _auth.currentUser!.uid;
-    return _db
-        .collection('meals')
-        .where('donorId', isEqualTo: uid)
-        .orderBy('postedAt', descending: true)
-        .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => FoodPost.fromFirestore(doc)).toList());
-  }
+  final uid = _auth.currentUser!.uid;
+  return _db
+      .collection('meals')
+      .where('donorId', isEqualTo: uid)
+      .where('status', whereIn: ['available', 'claimed'])
+      .snapshots()
+      .map((snap) =>
+          snap.docs.map((doc) => FoodPost.fromFirestore(doc)).toList());
+}
 
   // ── NGO claims a meal ────────────────────────────────────────────
   Future<void> claimMeal(String mealId) async {
