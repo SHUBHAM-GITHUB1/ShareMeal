@@ -57,11 +57,18 @@ class FoodPost {
 
     final rawImg   = d['img']         as String? ?? '';
     final isBase64 = d['imgIsBase64'] as bool?   ?? false;
+    
+    String finalImg = rawImg;
+    if (rawImg.isEmpty || (!isBase64 && rawImg.startsWith('https://loremflickr.com'))) {
+      // If no image or using old LoremFlickr URL, we'll use fallback
+      finalImg = ImageService.getFallbackImageUrl(item);
+    }
+    
     return FoodPost(
       id:          doc.id,
       item:        item,
       qty:         d['qty']            as String? ?? '',
-      img:         rawImg.isNotEmpty ? rawImg : ImageService.foodImageUrl(item),
+      img:         finalImg,
       imgIsBase64: isBase64,
       donor:       d['donorName']      as String? ?? '',
       isVeg:       d['isVeg']          as bool?   ?? true,

@@ -32,6 +32,7 @@ Future<void> confirmPickup(String mealId) async {
 
     final nutrients = await NutritionService().getNutrients(item);
     final bool hasCustomImg = imageBase64 != null && imageBase64.isNotEmpty;
+    final String imageUrl = hasCustomImg ? imageBase64 : await ImageService.foodImageUrl(item);
 
     final ref = await _db.collection('meals').add({
       'donorId':         uid,
@@ -39,7 +40,7 @@ Future<void> confirmPickup(String mealId) async {
       'item':            item,
       'qty':             '$qty Kg',
       'isVeg':           isVeg,
-      'img':             hasCustomImg ? imageBase64 : ImageService.foodImageUrl(item),
+      'img':             imageUrl,
       'imgIsBase64':     hasCustomImg,
       'status':          'available',
       'claimedBy':       null,
