@@ -255,6 +255,17 @@ class AppDecorations {
     ],
   );
 
+  // Input field (error)
+  static BoxDecoration fieldError = BoxDecoration(
+    color:         AppColors.fieldBg,
+    borderRadius:  BorderRadius.circular(AppDimensions.radiusMd),
+    border: Border.all(color: AppColors.terr, width: 1.5),
+    boxShadow: [
+      BoxShadow(color: AppColors.terr.withOpacity(0.15),
+          spreadRadius: 3, blurRadius: 0),
+    ],
+  );
+
   // Sage pill (sign in / create account)
   static BoxDecoration sagePill = BoxDecoration(
     color:         AppColors.sage.withOpacity(0.09),
@@ -592,44 +603,168 @@ class AppTheme {
   // ── Dark theme ─────────────────────────────────────────────────────────────
   static final dark = ThemeData(
     useMaterial3: true,
-    scaffoldBackgroundColor: AppColors.darkBg,
+    scaffoldBackgroundColor: const Color(0xFF0F1419),
     colorScheme: ColorScheme(
       brightness:             Brightness.dark,
       primary:                AppColors.sageLt,
-      onPrimary:              AppColors.sageDk,
-      primaryContainer:       const Color(0xFF1A3D2E),
-      onPrimaryContainer:     AppColors.sageLt,
+      onPrimary:              Colors.white,
+      primaryContainer:       const Color(0xFF1F4D3A),
+      onPrimaryContainer:     const Color(0xFFA8E6D0),
       secondary:              AppColors.amber,
       onSecondary:            AppColors.ink,
-      secondaryContainer:     const Color(0xFF3D2A00),
-      onSecondaryContainer:   const Color(0xFFFDE68A),
+      secondaryContainer:     const Color(0xFF4D3A00),
+      onSecondaryContainer:   const Color(0xFFFFE8A8),
       tertiary:               AppColors.terrLt,
       onTertiary:             Colors.white,
-      tertiaryContainer:      const Color(0xFF4A1C0A),
-      onTertiaryContainer:    const Color(0xFFFDC8B4),
-      surface:                AppColors.darkSurface,
-      onSurface:              const Color(0xFFE0EDE5),
-      surfaceContainerHighest: AppColors.darkSurface2,
+      tertiaryContainer:      const Color(0xFF5A2A15),
+      onTertiaryContainer:    const Color(0xFFFFD9C8),
+      surface:                const Color(0xFF1A1F26),
+      onSurface:              const Color(0xFFE8EFF0),
+      surfaceContainerHighest: const Color(0xFF2A3139),
       error:                  AppColors.terrLt,
       onError:                Colors.white,
-      outline:                const Color(0xFF4A6B58),
-      outlineVariant:         const Color(0xFF2A3E30),
-      shadow:                 Colors.black,
-      scrim:                  Colors.black,
-      inverseSurface:         const Color(0xFFE0EDE5),
-      onInverseSurface:       AppColors.darkSurface,
+      outline:                const Color(0xFF5A7A68),
+      outlineVariant:         const Color(0xFF3A4E42),
+      shadow:                 Colors.black87,
+      scrim:                  Colors.black87,
+      inverseSurface:         const Color(0xFFE8EFF0),
+      onInverseSurface:       const Color(0xFF0F1419),
       inversePrimary:         AppColors.sage,
     ),
     fontFamily: 'Georgia',
     appBarTheme: const AppBarTheme(
-      backgroundColor:  AppColors.darkBg,
-      foregroundColor:  Color(0xFFE0EDE5),
+      backgroundColor:  AppColors.sageHero,
+      foregroundColor:  Colors.white,
       elevation:        0,
       centerTitle:      true,
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor:          Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
+    ),
+    textTheme: const TextTheme(
+      displayLarge:   TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w700,
+          fontSize: 36, letterSpacing: -0.5, color: Color(0xFFE8EFF0)),
+      displayMedium:  TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w700,
+          fontSize: 30, letterSpacing: -0.3, color: Color(0xFFE8EFF0)),
+      displaySmall:   TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w600,
+          fontSize: 24, color: Color(0xFFE8EFF0)),
+      headlineLarge:  TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w700,
+          fontSize: 22, color: Color(0xFFE8EFF0)),
+      headlineMedium: TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w600,
+          fontSize: 18, color: Color(0xFFE8EFF0)),
+      headlineSmall:  TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w600,
+          fontSize: 16, color: Color(0xFFE8EFF0)),
+      titleLarge:     TextStyle(fontWeight: FontWeight.w600,
+          fontSize: 16, color: Color(0xFFE8EFF0)),
+      titleMedium:    TextStyle(fontWeight: FontWeight.w500,
+          fontSize: 14, color: Color(0xFFE8EFF0)),
+      titleSmall:     TextStyle(fontWeight: FontWeight.w500,
+          fontSize: 12, color: Color(0xFFE8EFF0)),
+      bodyLarge:      TextStyle(fontWeight: FontWeight.w400,
+          fontSize: 14, height: 1.6, color: Color(0xFFE8EFF0)),
+      bodyMedium:     TextStyle(fontWeight: FontWeight.w300,
+          fontSize: 13, height: 1.6, color: Color(0xFFD0D8DC)),
+      bodySmall:      TextStyle(fontWeight: FontWeight.w300,
+          fontSize: 11.5, color: Color(0xFFB0B8BC)),
+      labelLarge:     TextStyle(fontWeight: FontWeight.w600,
+          fontSize: 13, letterSpacing: 0.5, color: Color(0xFFE8EFF0)),
+      labelMedium:    TextStyle(fontWeight: FontWeight.w500,
+          fontSize: 11, letterSpacing: 0.6, color: Color(0xFFD0D8DC)),
+      labelSmall:     TextStyle(fontWeight: FontWeight.w600,
+          fontSize: 9.5, letterSpacing: 1.2, color: Color(0xFFB0B8BC)),
+    ),
+    cardTheme: CardThemeData(
+      color:           const Color(0xFF1A1F26),
+      elevation:       0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLg)),
+      surfaceTintColor: Colors.transparent,
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled:      true,
+      fillColor:   const Color(0xFF252B33),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        borderSide: const BorderSide(color: Color(0xFF3A4E42), width: 1.5),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        borderSide: const BorderSide(color: Color(0xFF3A4E42), width: 1.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        borderSide: BorderSide(
+            color: AppColors.sageLt.withOpacity(0.6), width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        borderSide: const BorderSide(color: AppColors.terrLt, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+        borderSide: const BorderSide(color: AppColors.terrLt, width: 1.5),
+      ),
+      hintStyle: const TextStyle(color: Color(0xFF7A8288),
+          fontWeight: FontWeight.w300, fontSize: 13.5),
+      errorStyle: const TextStyle(color: AppColors.terrLt, fontSize: 11),
+      contentPadding: AppDimensions.fieldContentPad,
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor:      Color(0xFF1A1F26),
+      selectedItemColor:    AppColors.sageLt,
+      unselectedItemColor:  Color(0xFF7A8288),
+      elevation:            8,
+      type: BottomNavigationBarType.fixed,
+      selectedLabelStyle:   TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+      unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 11),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor:  const Color(0xFF252B33),
+      selectedColor:    AppColors.sageLt,
+      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFFE8EFF0)),
+      side: BorderSide(color: AppColors.sageLt.withOpacity(0.3)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor:  AppColors.amber,
+      foregroundColor:  AppColors.ink,
+      elevation:        6,
+      shape: CircleBorder(),
+    ),
+    dividerTheme: DividerThemeData(
+      color:     const Color(0xFF3A4E42),
+      thickness: 1,
+      space:     1,
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected)
+              ? AppColors.sageLt : const Color(0xFF7A8288)),
+      trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected)
+              ? AppColors.sageLt.withOpacity(0.50)
+              : const Color(0xFF3A4E42)),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected)
+              ? AppColors.sageLt : Colors.transparent),
+      checkColor: WidgetStateProperty.all(Colors.white),
+      side: const BorderSide(color: Color(0xFF7A8288), width: 1.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor:  const Color(0xFF1A1F26),
+      contentTextStyle: const TextStyle(color: Color(0xFFE8EFF0), fontSize: 13),
+      actionTextColor:  AppColors.sageLt,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      behavior: SnackBarBehavior.floating,
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color:            AppColors.sageLt,
+      linearTrackColor: Color(0xFF252B33),
     ),
   );
 }

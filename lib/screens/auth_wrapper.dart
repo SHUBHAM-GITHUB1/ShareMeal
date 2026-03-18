@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../models/app_state.dart';
+import '../constants/app_theme.dart';
 import 'login_screen.dart';
 import 'donor_dashboard.dart';
 import 'ngo_dashboard.dart';
@@ -22,9 +23,12 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // No user → always show login, no exceptions
+        // No user → always show login with light theme, no exceptions
         if (snapshot.data == null) {
-          return const LoginScreen();
+          return Theme(
+            data: AppTheme.light,
+            child: const LoginScreen(),
+          );
         }
 
         // User logged in → fetch profile and route
