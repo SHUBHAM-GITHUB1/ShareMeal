@@ -7,6 +7,7 @@ import 'package:sharemeal/models/food_post.dart';
 import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/auth_wrapper.dart';
+import 'package:sharemeal/constants/app_responsive.dart';
 import 'package:sharemeal/screens/map_picker_screen.dart';
 import 'package:sharemeal/services/meal_service.dart';
 import 'package:sharemeal/services/image_service.dart';
@@ -39,11 +40,12 @@ class _DonorDashboardState extends State<DonorDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     final appState = Provider.of<AppState>(context);
     final user     = appState.currentUser;
 
     return Scaffold(
-      backgroundColor: AppColors.offWhite,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _SharedAppBar(title: 'Donor Portal', actions: [
         IconButton(
           icon: const Icon(Icons.refresh_rounded, size: 22),
@@ -94,8 +96,8 @@ class _DonorDashboardState extends State<DonorDashboard> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            left: 24, right: 24, top: 8,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppResponsive.h(24),
+            left: AppResponsive.w(24), right: AppResponsive.w(24), top: AppResponsive.h(8),
           ),
           child: Form(
             key: _formKey,
@@ -323,9 +325,10 @@ class _DonorDashboardState extends State<DonorDashboard> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.ink2,
                       side: BorderSide(color: AppColors.fieldBorder),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size(double.infinity, AppResponsive.h(52)),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
+                          borderRadius: BorderRadius.circular(AppResponsive.r(AppDimensions.radiusMd))),
                     ),
                     child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
@@ -472,20 +475,22 @@ class _DonorPostCardState extends State<_DonorPostCard> {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = _post.isVeg ? AppColors.sage : AppColors.terr;
     final isClaimed = _post.status == 'claimed';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: isDark ? const Color(0xFF1A1F26) : AppColors.white,
         borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
         border: Border(left: BorderSide(
             color: isClaimed ? AppColors.amber : accent, width: 3)),
         boxShadow: [
-          BoxShadow(color: AppColors.ink.withOpacity(0.05),
+          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withOpacity(0.15),
               blurRadius: 16, offset: const Offset(0, 4)),
-          BoxShadow(color: AppColors.ink.withOpacity(0.03),
+          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withOpacity(0.08),
               blurRadius: 6, offset: const Offset(0, 1)),
         ],
       ),
@@ -494,7 +499,7 @@ class _DonorPostCardState extends State<_DonorPostCard> {
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: SizedBox(
-            height: 140, width: double.infinity,
+            height: AppResponsive.h(140), width: double.infinity,
             child: _FoodImage(img: _post.img, isBase64: _post.imgIsBase64),
           ),
         ),
@@ -540,7 +545,7 @@ class _DonorPostCardState extends State<_DonorPostCard> {
               if (_post.nutrients != null) ...[
                 const SizedBox(height: 10),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  _NutrientChip('🔥 Cal',    _post.nutrients!.caloriesStr, Colors.deepOrange),
+                  _NutrientChip('Cal',    _post.nutrients!.caloriesStr, Colors.deepOrange),
                   _NutrientChip('Protein',   _post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
                   _NutrientChip('Carbs',     _post.nutrients!.carbsStr,    AppColors.amber),
                   _NutrientChip('Fat',       _post.nutrients!.fatStr,      AppColors.terr),
@@ -665,50 +670,55 @@ class _DonorPostCardState extends State<_DonorPostCard> {
 
             Row(children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.ink2,
-                    side: BorderSide(color: AppColors.fieldBorder),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                            AppDimensions.radiusMd)),
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.ink2,
+                      side: BorderSide(color: AppColors.fieldBorder),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                              AppDimensions.radiusMd)),
+                    ),
+                    child: const Text('Not Yet',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                  child: const Text('Not Yet',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: GestureDetector(
-                  onTap: () async {
-                    try {
-                      await MealService().confirmPickup(_post.id);
-                      Navigator.pop(ctx);
-                      _snack(context,
-                          '🎉 Pickup confirmed! Food reached the needy.',
-                          AppColors.sage);
-                    } catch (e) {
-                      _snack(context, 'Error: $e', AppColors.terr);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          colors: [AppColors.amber, AppColors.amberDk]),
-                      borderRadius: BorderRadius.circular(
-                          AppDimensions.radiusMd),
-                      boxShadow: [BoxShadow(
-                          color: AppColors.amber.withOpacity(0.28),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4))],
+                child: SizedBox(
+                  height: 52,
+                  child: GestureDetector(
+                    onTap: () async {
+                      try {
+                        await MealService().confirmPickup(_post.id);
+                        Navigator.pop(ctx);
+                        _snack(context,
+                            '🎉 Pickup confirmed! Food reached the needy.',
+                            AppColors.sage);
+                      } catch (e) {
+                        _snack(context, 'Error: $e', AppColors.terr);
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                            colors: [AppColors.amber, AppColors.amberDk]),
+                        borderRadius: BorderRadius.circular(
+                            AppDimensions.radiusMd),
+                        boxShadow: [BoxShadow(
+                            color: AppColors.amber.withOpacity(0.28),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4))],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('Yes, Confirmed!',
+                          style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.w700)),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text('Yes, Confirmed!',
-                        style: TextStyle(color: Colors.white,
-                            fontWeight: FontWeight.w700)),
                   ),
                 ),
               ),
@@ -732,6 +742,7 @@ class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return AppBar(
       backgroundColor: AppColors.sageHero,
       foregroundColor: Colors.white,
@@ -776,8 +787,9 @@ class _SharedDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Drawer(
-      backgroundColor: AppColors.offWhite,
+      backgroundColor: isDark ? const Color(0xFF0F1419) : AppColors.offWhite,
       child: Column(children: [
         Container(
           width: double.infinity,
@@ -825,7 +837,7 @@ class _SharedDrawer extends StatelessWidget {
 
         const SizedBox(height: 10),
         _DrawerItem(icon: Icons.location_on_outlined, title: 'My Address',
-            subtitle: user?.address ?? 'Not set', color: AppColors.sage),
+            subtitle: (user?.address?.trim().isNotEmpty == true) ? user!.address : 'Not set', color: AppColors.sage),
         Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
 
         Padding(
@@ -1060,26 +1072,33 @@ class _NutrientChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
+    // Cap icon size on web/tablet to prevent oversizing
+    final iconSize = AppResponsive.isLarge ? 6.0 : AppResponsive.r(8).toDouble();
+    final iconRadius = AppResponsive.isLarge ? 1.5 : AppResponsive.r(2).toDouble();
+    
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: EdgeInsets.symmetric(
+          horizontal: AppResponsive.w(10), vertical: AppResponsive.h(5)),
       decoration: BoxDecoration(
         color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppResponsive.r(20)),
         border: Border.all(color: color.withOpacity(0.22)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          width: 8, height: 8,
+          width: iconSize,
+          height: iconSize,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(iconRadius),
           ),
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: AppResponsive.w(6)),
         Text(
           '$label · $value',
           style: TextStyle(
-            fontSize: 11.5,
+            fontSize: AppResponsive.sp(11.5),
             fontWeight: FontWeight.w600,
             color: color.withOpacity(0.85),
           ),
@@ -1111,8 +1130,9 @@ class _DrawerItem extends StatelessWidget {
         ),
         title: Text(title,
             style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
-        subtitle: subtitle != null
-            ? Text(subtitle!, style: AppTextStyles.bodySmall) : null,
+        subtitle: (subtitle != null && subtitle!.trim().isNotEmpty)
+            ? Text(subtitle!, style: AppTextStyles.bodySmall,
+                maxLines: 2, overflow: TextOverflow.ellipsis) : null,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14)),
       ),

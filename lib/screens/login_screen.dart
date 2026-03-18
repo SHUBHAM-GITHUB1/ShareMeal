@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
 import '../constants/app_theme.dart';
+import '../constants/app_responsive.dart';
 import 'donor_dashboard.dart';
 import 'ngo_dashboard.dart';
 import 'dart:ui';
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _password = TextEditingController();
   final _org      = TextEditingController();
   final _addr     = TextEditingController();
+  final _phone    = TextEditingController();
   final _authService = AuthService();
   bool  _loading     = false;
   bool   _isLogin = true;
@@ -75,94 +77,133 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     for (final c in [_heroCtrl, _cardCtrl, _pulseCtrl, _glowCtrl, _blinkCtrl]) c.dispose();
-    for (final c in [_email, _password, _org, _addr]) c.dispose();
+    for (final c in [_email, _password, _org, _addr, _phone]) c.dispose();
     super.dispose();
   }
 
   void _switchMode() {
     _cardCtrl.reset();
+    // Clear all form fields and reset validation state
+    _formKey.currentState?.reset();
+    _email.clear();
+    _password.clear();
+    _org.clear();
+    _addr.clear();
+    _phone.clear();
     setState(() => _isLogin = !_isLogin);
     _cardCtrl.forward();
   }
 
   void _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-
-  setState(() => _loading = true);
-
-  try {
-    if (_isLogin) {
-      // ── Sign In ────────────────────────────────────────────
-      final data = await _authService.signIn(
-        email:    _email.text.trim(),
-        password: _password.text,
-      );
-
-      if (!mounted) return;
-
-      // Save user to AppState so all screens can access it
-      Provider.of<AppState>(context, listen: false)
-          .setUser(UserProfile.fromMap(data));
-
-      // Go to the right dashboard based on role
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 500),
-          pageBuilder: (_, anim, __) => FadeTransition(
-            opacity: anim,
-            child: data['role'] == 'Donor'
-                ? const DonorDashboard()
-                : const NGODashboard(),
+    // For Sign Up, check if all required fields are filled
+    if (!_isLogin) {
+      if (_email.text.trim().isEmpty ||
+          _password.text.isEmpty ||
+          _org.text.trim().isEmpty ||
+          _phone.text.trim().isEmpty ||
+          _addr.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All fields need to be filled in'),
+            backgroundColor: AppColors.terr,
+            behavior: SnackBarBehavior.floating,
           ),
-        ),
-      );
+        );
+        return;
+      }
+    }
 
-    } else {
-      // ── Sign Up ────────────────────────────────────────────
-      await _authService.signUp(
-        email:    _email.text.trim(),
-        password: _password.text,
-        orgName:  _org.text.trim().isEmpty
-                      ? 'Organization'
-                      : _org.text.trim(),
-        address:  _addr.text.trim(),
-        role:     _role,             // 'Donor' or 'NGO' from toggle
-      );
+    if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _loading = true);
+
+    try {
+      if (_isLogin) {
+        // ── Sign In ──────────────────��─────────────────────────
+        final data = await _authService.signIn(
+          email:    _email.text.trim(),
+          password: _password.text,
+        );
+
+        if (!mounted) return;
+
+        // Validate that we got user data back
+        if (data.isEmpty) {
+          throw Exception('Failed to retrieve user profile. Please try again.');
+        }
+
+        // Save user to AppState so all screens can access it
+        Provider.of<AppState>(context, listen: false)
+            .setUser(UserProfile.fromMap(data));
+
+        // Go to the right dashboard based on role
+        final role = data['role'] as String? ?? 'Donor';
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 500),
+            pageBuilder: (_, anim, __) => FadeTransition(
+              opacity: anim,
+              child: role == 'Donor'
+                  ? const DonorDashboard()
+                  : const NGODashboard(),
+            ),
+          ),
+        );
+
+      } else {
+        // ── Sign Up ────────────────────────────────────────────
+        await _authService.signUp(
+          email:    _email.text.trim(),
+          password: _password.text,
+          orgName:  _org.text.trim().isEmpty
+                        ? 'Organization'
+                        : _org.text.trim(),
+          address:  _addr.text.trim(),
+          role:     _role,             // 'Donor' or 'NGO' from toggle
+        );
+
+        if (!mounted) return;
+
+        // Clear form fields after successful signup
+        _email.clear();
+        _password.clear();
+        _org.clear();
+        _addr.clear();
+        _phone.clear();
+
+        // After signup, ask them to sign in
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Account created! Please sign in.'),
+            backgroundColor: AppColors.sage,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Switch to login mode automatically
+        setState(() => _isLogin = true);
+      }
+
+    } catch (e) {
+      // Show whatever error message Firebase gives us
       if (!mounted) return;
-
-      // After signup, ask them to sign in
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Account created! Please sign in.'),
-          backgroundColor: AppColors.sage,
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppColors.terr,
           behavior: SnackBarBehavior.floating,
         ),
       );
-
-      // Switch to login mode automatically
-      setState(() => _isLogin = true);
+    } finally {
+      // Always stop the loading spinner
+      if (mounted) setState(() => _loading = false);
     }
-
-  } catch (e) {
-    // Show whatever error message Firebase gives us
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: AppColors.terr,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  } finally {
-    // Always stop the loading spinner
-    if (mounted) setState(() => _loading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {
+    AppResponsive.init(context);
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       body: Container(
@@ -206,15 +247,19 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: AppResponsive.h(20)),
 
-                // ── Form card ────────────────────────────────────────────
+                // ── Form card ────────────────────���───────────────────────
                 FadeTransition(
                   opacity: _cardFade,
                   child: SlideTransition(
                     position: _cardSlide,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                      padding: EdgeInsets.fromLTRB(
+                        AppResponsive.w(16), 0, 
+                        AppResponsive.w(16), 
+                        AppResponsive.h(40)
+                      ),
                       child: _buildCard(),
                     ),
                   ),
@@ -296,9 +341,14 @@ class _LoginScreenState extends State<LoginScreen>
                           color: AppColors.ink.withOpacity(0.28),
                         ),
                       ),
-                      val: (v) => v == null || v.length < 4
+                      val: (v) => v == null || v.isEmpty || v.length < 4
                           ? 'Min 4 characters' : null),
                   if (!_isLogin) ...[
+                    const SizedBox(height: 12),
+                    _lf(label: 'PHONE NUMBER', ctrl: _phone,
+                        icon: Icons.phone_outlined, hint: 'Your phone number',
+                        keyboard: TextInputType.phone,
+                        val: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
                     const SizedBox(height: 12),
                     _lf(label: 'FULL ADDRESS', ctrl: _addr,
                         icon: Icons.place_outlined, hint: 'Your full address',
@@ -410,7 +460,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ),
-                          ]),
+                  ]),
                   const SizedBox(height: 20),
 
                   Center(
@@ -555,19 +605,22 @@ class _HeroSection extends StatelessWidget {
         Text('ShareMeal', style: AppTextStyles.brandName),
         const SizedBox(height: 8),
 
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(width: 24, height: 1,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(2),
-                  gradient: LinearGradient(colors: [Colors.transparent,
-                    AppColors.amberLt.withOpacity(0.55)]))),
-          const SizedBox(width: 8),
-          Text('REDUCING WASTE · FEEDING HOPE', style: AppTextStyles.tagline),
-          const SizedBox(width: 8),
-          Container(width: 24, height: 1,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(2),
-                  gradient: LinearGradient(colors: [
-                    AppColors.amberLt.withOpacity(0.55), Colors.transparent]))),
-        ]),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(width: 24, height: 1,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(2),
+                    gradient: LinearGradient(colors: [Colors.transparent,
+                      AppColors.amberLt.withOpacity(0.55)]))),
+            const SizedBox(width: 8),
+            Text('REDUCING WASTE · FEEDING HOPE', style: AppTextStyles.tagline),
+            const SizedBox(width: 8),
+            Container(width: 24, height: 1,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(2),
+                    gradient: LinearGradient(colors: [
+                      AppColors.amberLt.withOpacity(0.55), Colors.transparent]))),
+          ]),
+        ),
         const SizedBox(height: 20),
 
         // Stats bridge card
@@ -653,34 +706,38 @@ class _RoleToggle extends StatelessWidget {
     return Expanded(
       child: GestureDetector(
         onTap: () => onChanged(key),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          decoration: active ? AppDecorations.toggleActive : null,
-          alignment: Alignment.center,
-          child: AnimatedScale(
-            scale: active ? 1.02 : 1.0,
+        child: Container(
+          color: Colors.transparent, // Make entire area tappable
+          child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 15,
-                  color: active ? Colors.white : AppColors.ink.withOpacity(0.38),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                    color: active
-                        ? Colors.white
-                        : AppColors.ink.withOpacity(0.38),
+            curve: Curves.easeInOut,
+            decoration: active ? AppDecorations.toggleActive : null,
+            alignment: Alignment.center,
+            child: AnimatedScale(
+              scale: active ? 1.02 : 1.0,
+              duration: const Duration(milliseconds: 250),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Icon(
+                    icon,
+                    size: 15,
+                    color: active ? Colors.white : AppColors.ink.withOpacity(0.38),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                      color: active
+                          ? Colors.white
+                          : AppColors.ink.withOpacity(0.38),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -708,43 +765,93 @@ class _FocusField extends StatefulWidget {
 class _FocusFieldState extends State<_FocusField> {
   final _f = FocusNode();
   bool _focused = false;
+  bool _hasError = false;
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
     _f.addListener(() => setState(() => _focused = _f.hasFocus));
+    widget.controller.addListener(_clearError);
   }
-  @override void dispose() { _f.dispose(); super.dispose(); }
+
+  void _clearError() {
+    if (mounted && _hasError && widget.controller.text.isEmpty) {
+      setState(() {
+        _hasError = false;
+        _errorMessage = null;
+      });
+    }
+  }
+
+  @override void dispose() { 
+    _f.dispose();
+    widget.controller.removeListener(_clearError);
+    super.dispose(); 
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: _focused
-          ? AppDecorations.fieldFocused : AppDecorations.field,
-      child: TextFormField(
-        controller: widget.controller, focusNode: _f,
-        keyboardType: widget.keyboard, obscureText: widget.obscure,
-        validator: widget.validator,
-        style: AppTextStyles.body,
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          hintStyle: TextStyle(color: AppColors.ink.withOpacity(0.25),
-              fontSize: 13.5, fontWeight: FontWeight.w300),
-          prefixIcon: AnimatedOpacity(
-            opacity: _focused ? 0.65 : 0.30,
-            duration: const Duration(milliseconds: 200),
-            child: Icon(widget.icon, size: AppDimensions.iconSm,
-                color: AppColors.ink),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: _hasError
+              ? AppDecorations.fieldError
+              : (_focused ? AppDecorations.fieldFocused : AppDecorations.field),
+          child: TextFormField(
+            controller: widget.controller, focusNode: _f,
+            keyboardType: widget.keyboard, obscureText: widget.obscure,
+            validator: (value) {
+              final result = widget.validator?.call(value);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _hasError = result != null;
+                    _errorMessage = result;
+                  });
+                }
+              });
+              return null; // Return null to hide default error below
+            },
+            style: AppTextStyles.body,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: TextStyle(color: AppColors.ink.withOpacity(0.25),
+                  fontSize: 13.5, fontWeight: FontWeight.w300),
+              prefixIcon: AnimatedOpacity(
+                opacity: _focused ? 0.65 : 0.30,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(widget.icon, size: AppDimensions.iconSm,
+                    color: _hasError ? AppColors.terr : AppColors.ink),
+              ),
+              suffixIcon: widget.suffix != null
+                  ? Padding(padding: const EdgeInsets.only(right: 12),
+                      child: widget.suffix)
+                  : null,
+              border: InputBorder.none,
+              contentPadding: _hasError
+                  ? EdgeInsets.fromLTRB(16, 12, 16, 12) // Reduced padding for error text
+                  : AppDimensions.fieldContentPad,
+            ),
           ),
-          suffixIcon: widget.suffix != null
-              ? Padding(padding: const EdgeInsets.only(right: 12),
-                  child: widget.suffix)
-              : null,
-          border: InputBorder.none,
-          contentPadding: AppDimensions.fieldContentPad,
-          errorStyle: TextStyle(fontSize: 11, color: AppColors.terr),
         ),
-      ),
+        if (_hasError && _errorMessage != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: Text(
+              _errorMessage!,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.terr,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
