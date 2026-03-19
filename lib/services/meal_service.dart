@@ -46,9 +46,9 @@ Future<void> confirmPickup(String mealId) async {
       'claimedBy':       null,
       'postedAt':        FieldValue.serverTimestamp(),
       'nutrients':       nutrients.toMap(),
-      if (lat != null) 'lat': lat,
-      if (lng != null) 'lng': lng,
-      if (locationAddress != null) 'locationAddress': locationAddress,
+      'lat': ?lat,
+      'lng': ?lng,
+      'locationAddress': ?locationAddress,
     });
 
     // Notify nearby NGOs if donor provided a location

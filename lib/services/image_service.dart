@@ -49,48 +49,31 @@ class ImageService {
       // Fallback if API fails
     }
     
-    return getFallbackImageUrl(foodName);
-  }
-
-  /// Fallback image URLs for common food items
-  static String getFallbackImageUrl(String foodName) {
-    final food = foodName.toLowerCase().trim();
-    
-    final foodImageMap = {
-      'rice': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400',
-      'bread': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400',
-      'pasta': 'https://images.unsplash.com/photo-1551892374-ecf8754cf8b0?w=400',
-      'pizza': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
-      'burger': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
-      'sandwich': 'https://images.unsplash.com/photo-1539252554453-80ab65ce3586?w=400',
-      'salad': 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
-      'soup': 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400',
-      'chicken': 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400',
-      'fish': 'https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=400',
-      'vegetables': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400',
-      'fruits': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400',
-      'apple': 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400',
-      'banana': 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400',
-      'milk': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
-      'cheese': 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400',
-      'eggs': 'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?w=400',
-      'curry': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400',
-      'biryani': 'https://images.unsplash.com/photo-1563379091339-03246963d51a?w=400',
-    };
-
-    // Try exact match
-    if (foodImageMap.containsKey(food)) {
-      return foodImageMap[food]!;
-    }
-
-    // Try partial matches
-    for (final key in foodImageMap.keys) {
-      if (food.contains(key) || key.contains(food)) {
-        return foodImageMap[key]!;
-      }
-    }
+    final foodData = _fallbackImageUrl(foodName);
+    if (foodData != null) return foodData;
 
     // Default generic food image
     return 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400';
   }
+
+  static String? _fallbackImageUrl(String foodName) {
+    const map = <String, String>{
+      'rice': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400',
+      'roti': 'https://images.unsplash.com/photo-1626776878426-b3c20c021e3f?w=400',
+      'dal':  'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400',
+      'biryani': 'https://images.unsplash.com/photo-1563379091339-03246963d51a?w=400',
+      'chicken': 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400',
+      'bread': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400',
+      'fruit': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400',
+    };
+    final key = foodName.toLowerCase().trim();
+    for (final entry in map.entries) {
+      if (key.contains(entry.key)) return entry.value;
+    }
+    return null;
+  }
+
+  static String getFallbackImageUrl(String foodName) =>
+      _fallbackImageUrl(foodName) ??
+      'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400';
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/login_screen.dart';
 import 'package:sharemeal/constants/app_responsive.dart';
 import 'package:sharemeal/services/meal_service.dart';
+import 'package:sharemeal/screens/pickup_map_screen.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});
@@ -33,14 +35,14 @@ class _NGODashboardState extends State<NGODashboard> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Container(
                 width: 5, height: 5,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.amberLt,
                   boxShadow: [BoxShadow(color: AppColors.amber, blurRadius: 5)],
                 ),
               ),
               const SizedBox(width: 5),
-              Text('LIVE', style: AppTextStyles.liveLabel),
+              const Text('LIVE', style: AppTextStyles.liveLabel),
             ]),
           ),
           IconButton(
@@ -91,9 +93,9 @@ class _FoodCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1A1F26) : AppColors.white,
         borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
         boxShadow: [
-          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withOpacity(0.15),
+          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withAlpha(38),
               blurRadius: 18, offset: const Offset(0, 4)),
-          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withOpacity(0.08),
+          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withAlpha(20),
               blurRadius: 6, offset: const Offset(0, 1)),
         ],
       ),
@@ -103,19 +105,10 @@ class _FoodCard extends StatelessWidget {
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: Stack(children: [
-            Image.network(
-              post.img, height: 170, width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: AppResponsive.h(170), color: AppColors.sageBg,
-                child: const Center(child: Icon(Icons.fastfood_outlined,
-                    size: 52, color: AppColors.sage)),
-              ),
-              loadingBuilder: (_, child, progress) => progress == null
-                  ? child
-                  : Container(height: 170, color: AppColors.sageBg,
-                      child: const Center(child: CircularProgressIndicator(
-                          color: AppColors.sage, strokeWidth: 2))),
+            _FoodImage(
+              img: post.img,
+              isBase64: post.imgIsBase64,
+              height: 170,
             ),
             // Veg badge
             Positioned(
@@ -125,7 +118,7 @@ class _FoodCard extends StatelessWidget {
                     horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: (post.isVeg ? AppColors.sage : AppColors.terr)
-                      .withOpacity(0.88),
+                      .withAlpha(224),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -146,13 +139,13 @@ class _FoodCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
+                    color: Colors.black.withAlpha(140),
                     borderRadius: BorderRadius.circular(20)),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.location_on_rounded,
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.location_on_rounded,
                       size: 11, color: AppColors.amberLt),
-                  const SizedBox(width: 3),
-                  const Text('2.0 km', style: TextStyle(fontSize: 10.5,
+                  SizedBox(width: 3),
+                  Text('2.0 km', style: TextStyle(fontSize: 10.5,
                       color: Colors.white, fontWeight: FontWeight.w600)),
                 ]),
               ),
@@ -175,9 +168,9 @@ class _FoodCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppColors.amber.withOpacity(0.12),
+                  color: AppColors.amber.withAlpha(31),
                   border: Border.all(
-                      color: AppColors.amber.withOpacity(0.30)),
+                      color: AppColors.amber.withAlpha(77)),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(post.qty, style: const TextStyle(
@@ -200,6 +193,57 @@ class _FoodCard extends StatelessWidget {
               Text(DateFormat('hh:mm a').format(post.time),
                   style: AppTextStyles.bodySmall),
             ]),
+
+            // Pickup address chip — tappable to open map
+            if (post.locationAddress != null &&
+                post.locationAddress!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: post.hasLocation
+                    ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PickupMapScreen(
+                              lat: post.lat!,
+                              lng: post.lng!,
+                              address: post.locationAddress!,
+                              foodItem: post.item,
+                              donorName: post.donor,
+                            ),
+                          ),
+                        )
+                    : null,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.sageBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: AppColors.sage.withAlpha(51)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.location_on_rounded,
+                        size: 13, color: AppColors.sage),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        post.locationAddress!,
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.sage,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11.5),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (post.hasLocation)
+                      const Icon(Icons.map_outlined,
+                          size: 13, color: AppColors.sage),
+                  ]),
+                ),
+              ),
+            ],
 
             // Nutrient chips
             if (post.nutrients != null) ...[
@@ -227,7 +271,7 @@ class _FoodCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(
                         AppDimensions.radiusMd),
                     boxShadow: [BoxShadow(
-                        color: AppColors.sage.withOpacity(0.28),
+                        color: AppColors.sage.withAlpha(71),
                         blurRadius: 14, offset: const Offset(0, 5))],
                   ),
                   alignment: Alignment.center,
@@ -295,7 +339,7 @@ class _FoodCard extends StatelessWidget {
                   color: AppColors.sageBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                      color: AppColors.sage.withOpacity(0.20)),
+                      color: AppColors.sage.withAlpha(51)),
                 ),
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,8 +360,8 @@ class _FoodCard extends StatelessWidget {
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: post.nutrients!.source == 'api'
-                            ? Colors.green.withOpacity(0.15)
-                            : Colors.orange.withOpacity(0.15),
+                            ? Colors.green.withAlpha(38)
+                            : Colors.orange.withAlpha(38),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -370,20 +414,92 @@ class _FoodCard extends StatelessWidget {
 
             const SizedBox(height: 14),
 
+            // Pickup address + map button in detail dialog
+            if (post.locationAddress != null &&
+                post.locationAddress!.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.sageBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppColors.sage.withAlpha(51)),
+                ),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  const Icon(Icons.location_on_rounded,
+                      color: AppColors.sage, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Pickup Address',
+                          style: AppTextStyles.bodySmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.sage,
+                              fontSize: 11)),
+                      const SizedBox(height: 3),
+                      Text(post.locationAddress!,
+                          style: AppTextStyles.body.copyWith(fontSize: 13)),
+                    ],
+                  )),
+                ]),
+              ),
+              if (post.hasLocation) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PickupMapScreen(
+                            lat: post.lat!,
+                            lng: post.lng!,
+                            address: post.locationAddress!,
+                            foodItem: post.item,
+                            donorName: post.donor,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.map_outlined,
+                        size: 16, color: AppColors.sage),
+                    label: const Text('View Pickup on Map',
+                        style: TextStyle(
+                            color: AppColors.sage,
+                            fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.sage),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                              AppDimensions.radiusMd)),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+            ],
+
             // Info notice
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.amber.withOpacity(0.08),
+                color: AppColors.amber.withAlpha(20),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: AppColors.amber.withOpacity(0.22)),
+                    color: AppColors.amber.withAlpha(56)),
               ),
-              child: Row(children: [
-                const Icon(Icons.info_outline_rounded,
+              child: const Row(children: [
+                Icon(Icons.info_outline_rounded,
                     size: 16, color: AppColors.amberDk),
-                const SizedBox(width: 8),
-                const Expanded(child: Text(
+                SizedBox(width: 8),
+                Expanded(child: Text(
                     'Donor will be notified when you confirm pickup',
                     style: TextStyle(fontSize: 11.5,
                         color: AppColors.amberDk))),
@@ -401,7 +517,7 @@ class _FoodCard extends StatelessWidget {
                     onPressed: () => Navigator.pop(ctx),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.ink2,
-                      side: BorderSide(color: AppColors.fieldBorder),
+                      side: const BorderSide(color: AppColors.fieldBorder),
                       padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(
@@ -428,7 +544,7 @@ class _FoodCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(
                             AppDimensions.radiusMd),
                         boxShadow: [BoxShadow(
-                            color: AppColors.sage.withOpacity(0.28),
+                            color: AppColors.sage.withAlpha(71),
                             blurRadius: 10,
                             offset: const Offset(0, 4))],
                       ),
@@ -466,7 +582,7 @@ class _FoodCard extends StatelessWidget {
                 gradient: AppGradients.sageButton,
                 shape: BoxShape.circle,
                 boxShadow: [BoxShadow(
-                    color: AppColors.sage.withOpacity(0.30),
+                    color: AppColors.sage.withAlpha(77),
                     blurRadius: 16, offset: const Offset(0, 5))],
               ),
               child: const Icon(Icons.check_rounded,
@@ -474,9 +590,9 @@ class _FoodCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            Text('Confirm Claim', style: AppTextStyles.sectionHead),
+            const Text('Confirm Claim', style: AppTextStyles.sectionHead),
             const SizedBox(height: 6),
-            Text('You are claiming:', style: AppTextStyles.bodySmall),
+            const Text('You are claiming:', style: AppTextStyles.bodySmall),
             const SizedBox(height: 12),
 
             Container(
@@ -486,7 +602,7 @@ class _FoodCard extends StatelessWidget {
                 color: AppColors.sageBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: AppColors.sage.withOpacity(0.20)),
+                    color: AppColors.sage.withAlpha(51)),
               ),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,7 +624,7 @@ class _FoodCard extends StatelessWidget {
                     onPressed: () => Navigator.pop(ctx),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.ink2,
-                      side: BorderSide(color: AppColors.fieldBorder),
+                      side: const BorderSide(color: AppColors.fieldBorder),
                       padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(
@@ -527,11 +643,13 @@ class _FoodCard extends StatelessWidget {
                     onTap: () async {
                       try {
                         await MealService().claimMeal(post.id);
+                        if (!context.mounted) return;
                         Navigator.pop(ctx);
                         _snack(context,
                             '✅ Food claimed! Donor has been notified',
                             AppColors.sage);
                       } catch (e) {
+                        if (!context.mounted) return;
                         _snack(context, 'Error: $e', AppColors.terr);
                       }
                     },
@@ -542,7 +660,7 @@ class _FoodCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(
                             AppDimensions.radiusMd),
                         boxShadow: [BoxShadow(
-                            color: AppColors.sage.withOpacity(0.28),
+                            color: AppColors.sage.withAlpha(71),
                             blurRadius: 10,
                             offset: const Offset(0, 4))],
                       ),
@@ -586,12 +704,12 @@ class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: AppGradients.amberBadge,
-            boxShadow: [BoxShadow(color: AppColors.amber.withOpacity(0.35),
+            boxShadow: [BoxShadow(color: AppColors.amber.withAlpha(89),
                 blurRadius: 8, offset: const Offset(0, 2))],
           ),
           child: Stack(alignment: Alignment.center, children: [
             Icon(Icons.favorite, size: 20,
-                color: Colors.white.withOpacity(0.95)),
+                color: Colors.white.withAlpha(242)),
             const Icon(Icons.handshake, size: 11,
                 color: Color(0xFF92400E)),
           ]),
@@ -639,12 +757,12 @@ class _SharedDrawer extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: AppGradients.amberBadge,
                 boxShadow: [BoxShadow(
-                    color: AppColors.amber.withOpacity(0.35),
+                    color: AppColors.amber.withAlpha(89),
                     blurRadius: 12, offset: const Offset(0, 4))],
               ),
               child: Stack(alignment: Alignment.center, children: [
                 Icon(Icons.favorite, size: 30,
-                    color: Colors.white.withOpacity(0.95)),
+                    color: Colors.white.withAlpha(242)),
                 const Icon(Icons.handshake, size: 15,
                     color: Color(0xFF92400E)),
               ]),
@@ -659,7 +777,7 @@ class _SharedDrawer extends StatelessWidget {
               const SizedBox(height: 3),
               Text(user?.email ?? '—',
                   style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
+                      color: Colors.white.withAlpha(191),
                       fontSize: 12.5)),
               const SizedBox(height: 5),
               Container(
@@ -680,7 +798,7 @@ class _SharedDrawer extends StatelessWidget {
             title: 'My Address',
             subtitle: (user?.address?.trim().isNotEmpty == true) ? user!.address : 'Not set',
             color: AppColors.sage),
-        Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
+        const Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
 
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -688,7 +806,7 @@ class _SharedDrawer extends StatelessWidget {
             secondary: Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                  color: AppColors.sage.withOpacity(0.10),
+                  color: AppColors.sage.withAlpha(26),
                   borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.dark_mode_outlined,
                   color: AppColors.sage, size: 18),
@@ -697,7 +815,7 @@ class _SharedDrawer extends StatelessWidget {
                 style: AppTextStyles.body.copyWith(
                     fontWeight: FontWeight.w600)),
             value: appState.isDarkMode,
-            activeColor: AppColors.sage,
+            activeThumbColor: AppColors.sage,
             onChanged: (_) => appState.toggleTheme(),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14)),
@@ -705,7 +823,7 @@ class _SharedDrawer extends StatelessWidget {
         ),
 
         const Spacer(),
-        Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
+        const Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
 
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
@@ -713,7 +831,7 @@ class _SharedDrawer extends StatelessWidget {
             leading: Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                  color: AppColors.terr.withOpacity(0.10),
+                  color: AppColors.terr.withAlpha(26),
                   borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.logout_rounded,
                   color: AppColors.terr, size: 18),
@@ -750,12 +868,12 @@ class _EmptyState extends StatelessWidget {
           width: 96, height: 96,
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [
-              AppColors.sage.withOpacity(0.12),
-              AppColors.sageMid.withOpacity(0.18),
+              AppColors.sage.withAlpha(31),
+              AppColors.sageMid.withAlpha(46),
             ]),
             shape: BoxShape.circle,
             border: Border.all(
-                color: AppColors.sage.withOpacity(0.20), width: 1.5),
+                color: AppColors.sage.withAlpha(51), width: 1.5),
           ),
           child: Icon(
               isDonor ? Icons.restaurant_outlined : Icons.search_off_rounded,
@@ -792,7 +910,7 @@ class _NutrientBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.22)),
+        border: Border.all(color: color.withAlpha(56)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.max,
@@ -867,9 +985,9 @@ class _NutrientChip extends StatelessWidget {
       padding: EdgeInsets.symmetric(
           horizontal: AppResponsive.w(10), vertical: AppResponsive.h(5)),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withAlpha(26),
         borderRadius: BorderRadius.circular(AppResponsive.r(20)),
-        border: Border.all(color: color.withOpacity(0.22)),
+        border: Border.all(color: color.withAlpha(56)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(
@@ -883,7 +1001,7 @@ class _NutrientChip extends StatelessWidget {
         SizedBox(width: AppResponsive.w(6)),
         Text('$label · $value', style: TextStyle(
             fontSize: AppResponsive.sp(11.5), fontWeight: FontWeight.w600,
-            color: color.withOpacity(0.85))),
+            color: color.withAlpha(217))),
       ]),
     );
   }
@@ -904,7 +1022,7 @@ class _DrawerItem extends StatelessWidget {
       child: ListTile(
         leading: Container(
           width: 36, height: 36,
-          decoration: BoxDecoration(color: color.withOpacity(0.10),
+          decoration: BoxDecoration(color: color.withAlpha(26),
               borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, color: color, size: 18),
         ),
@@ -918,6 +1036,43 @@ class _DrawerItem extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Food Image (handles both base64 and URL) ───────────────────────────────────
+class _FoodImage extends StatelessWidget {
+  final String img;
+  final bool isBase64;
+  final double height;
+  const _FoodImage({required this.img, required this.isBase64, this.height = 170});
+
+  @override
+  Widget build(BuildContext context) {
+    if (isBase64 && img.isNotEmpty) {
+      return Image.memory(
+        base64Decode(img),
+        height: height, width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, e, s) => _placeholder(),
+      );
+    }
+    return Image.network(
+      img, height: height, width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, e, s) => _placeholder(),
+      loadingBuilder: (_, child, progress) => progress == null
+          ? child
+          : Container(
+              height: height, color: AppColors.sageBg,
+              child: const Center(child: CircularProgressIndicator(
+                  color: AppColors.sage, strokeWidth: 2))),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        height: height, color: AppColors.sageBg,
+        child: const Center(
+            child: Icon(Icons.fastfood_outlined, size: 52, color: AppColors.sage)),
+      );
 }
 
 void _snack(BuildContext context, String msg, Color color) {

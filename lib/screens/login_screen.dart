@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/app_state.dart';
-import '../constants/app_theme.dart';
-import '../constants/app_responsive.dart';
-import 'donor_dashboard.dart';
-import 'ngo_dashboard.dart';
-import 'dart:ui';
-import '../services/auth_service.dart';
+import 'package:sharemeal/models/app_state.dart';
+import 'package:sharemeal/constants/app_theme.dart';
+import 'package:sharemeal/constants/app_responsive.dart';
+import 'package:sharemeal/screens/donor_dashboard.dart';
+import 'package:sharemeal/screens/ngo_dashboard.dart';
+import 'package:sharemeal/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -76,8 +75,12 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
-    for (final c in [_heroCtrl, _cardCtrl, _pulseCtrl, _glowCtrl, _blinkCtrl]) c.dispose();
-    for (final c in [_email, _password, _org, _addr, _phone]) c.dispose();
+    for (final c in [_heroCtrl, _cardCtrl, _pulseCtrl, _glowCtrl, _blinkCtrl]) {
+      c.dispose();
+    }
+    for (final c in [_email, _password, _org, _addr, _phone]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -142,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen>
           context,
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 500),
-            pageBuilder: (_, anim, __) => FadeTransition(
+            pageBuilder: (_, anim, _) => FadeTransition(
               opacity: anim,
               child: role == 'Donor'
                   ? const DonorDashboard()
@@ -232,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen>
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
-                                  colors: [AppColors.amber.withOpacity(0.28),
+                                  colors: [AppColors.amber.withAlpha(71),
                                     Colors.transparent],
                                   stops: const [0, .65],
                                 ),
@@ -325,7 +328,9 @@ class _LoginScreenState extends State<LoginScreen>
                       val: (v) {
                         if (v == null || v.trim().isEmpty) return 'Required';
                         if (!RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,4}$')
-                            .hasMatch(v.trim())) return 'Invalid email';
+                            .hasMatch(v.trim())) {
+                          return 'Invalid email';
+                        }
                         return null;
                       }),
                   const SizedBox(height: 12),
@@ -338,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen>
                           _obscure ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                           size: AppDimensions.iconSm,
-                          color: AppColors.ink.withOpacity(0.28),
+                          color: AppColors.ink.withAlpha(71),
                         ),
                       ),
                       val: (v) => v == null || v.isEmpty || v.length < 4
@@ -393,7 +398,7 @@ class _LoginScreenState extends State<LoginScreen>
                             );
                           }
                         },
-                        child: Text('Forgot password?',
+                        child: const Text('Forgot password?',
                             style: AppTextStyles.forgotLink),
                       ),
                     ),
@@ -411,16 +416,16 @@ class _LoginScreenState extends State<LoginScreen>
 
                   Row(children: [
                     Expanded(child: Divider(
-                        color: AppColors.ink.withOpacity(0.07), thickness: 1)),
+                        color: AppColors.ink.withAlpha(18), thickness: 1)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text('or continue with',
                           style: TextStyle(fontSize: 10.5,
                               fontWeight: FontWeight.w300,
-                              color: AppColors.ink.withOpacity(0.28))),
+                              color: AppColors.ink.withAlpha(71))),
                     ),
                     Expanded(child: Divider(
-                        color: AppColors.ink.withOpacity(0.07), thickness: 1)),
+                        color: AppColors.ink.withAlpha(18), thickness: 1)),
                   ]),
                   const SizedBox(height: 14),
 
@@ -453,10 +458,10 @@ class _LoginScreenState extends State<LoginScreen>
                             );
                           }
                         },
-                        child: _SocialBtn(
+                        child: const _SocialBtn(
                           label: 'Google',
                           icon: Icons.g_mobiledata_rounded,
-                          iconColor: const Color(0xFF4285F4),
+                          iconColor: Color(0xFF4285F4),
                         ),
                       ),
                     ),
@@ -470,7 +475,7 @@ class _LoginScreenState extends State<LoginScreen>
                         text: TextSpan(
                           style: TextStyle(fontSize: 12,
                               fontWeight: FontWeight.w300,
-                              color: AppColors.ink.withOpacity(0.42)),
+                              color: AppColors.ink.withAlpha(107)),
                           children: [
                             TextSpan(text: _isLogin
                                 ? "Don't have an account?  "
@@ -518,7 +523,7 @@ class _LoginScreenState extends State<LoginScreen>
 class _HeroDotPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size s) {
-    final p = Paint()..color = Colors.white.withOpacity(0.06);
+    final p = Paint()..color = Colors.white.withAlpha(15);
     for (double x = 0; x < s.width; x += 22) {
       for (double y = 0; y < s.height; y += 22) {
         canvas.drawCircle(Offset(x, y), 1, p);
@@ -544,17 +549,17 @@ class _HeroSection extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: AnimatedBuilder(
             animation: blinkAnim,
-            builder: (_, __) => Container(
+            builder: (_, _) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: AppDecorations.liveBadge,
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Container(width: 5, height: 5,
-                    decoration: BoxDecoration(shape: BoxShape.circle,
+                    decoration: const BoxDecoration(shape: BoxShape.circle,
                         color: AppColors.amberLt,
                         boxShadow: [BoxShadow(
                             color: AppColors.amber, blurRadius: 6)])),
                 const SizedBox(width: 5),
-                Text('LIVE', style: AppTextStyles.liveLabel),
+                const Text('LIVE', style: AppTextStyles.liveLabel),
               ]),
             ),
           ),
@@ -565,35 +570,35 @@ class _HeroSection extends StatelessWidget {
         SizedBox(
           width: 116, height: 116,
           child: Stack(alignment: Alignment.center, children: [
-            AnimatedBuilder(animation: pulseB, builder: (_, __) => Container(
+            AnimatedBuilder(animation: pulseB, builder: (_, _) => Container(
               width: 112 + pulseB.value * 8,
               height: 112 + pulseB.value * 8,
               decoration: BoxDecoration(shape: BoxShape.circle,
                   border: Border.all(
-                      color: AppColors.amberLt.withOpacity(
-                          (0.15 - pulseB.value * 0.06).clamp(0.0, 1.0)),
+                      color: AppColors.amberLt.withAlpha(
+                          ((0.15 - pulseB.value * 0.06).clamp(0.0, 1.0) * 255).round()),
                       width: 1)),
             )),
-            AnimatedBuilder(animation: pulseA, builder: (_, __) => Container(
+            AnimatedBuilder(animation: pulseA, builder: (_, _) => Container(
               width: 100 + pulseA.value * 6,
               height: 100 + pulseA.value * 6,
               decoration: BoxDecoration(shape: BoxShape.circle,
                   border: Border.all(
-                      color: AppColors.amberLt.withOpacity(
-                          (0.35 - pulseA.value * 0.12).clamp(0.0, 1.0)),
+                      color: AppColors.amberLt.withAlpha(
+                          ((0.35 - pulseA.value * 0.12).clamp(0.0, 1.0) * 255).round()),
                       width: 1.5)),
             )),
             Container(
               width: 86, height: 86,
               decoration: AppDecorations.logoBadge.copyWith(boxShadow: [
-                BoxShadow(color: AppColors.amber.withOpacity(0.40),
+                BoxShadow(color: AppColors.amber.withAlpha(102),
                     blurRadius: 40, offset: const Offset(0, 14)),
-                BoxShadow(color: AppColors.amberDk.withOpacity(0.22),
+                BoxShadow(color: AppColors.amberDk.withAlpha(56),
                     blurRadius: 12, offset: const Offset(0, 4)),
               ]),
               child: Stack(alignment: Alignment.center, children: [
                 Icon(Icons.favorite, size: 46,
-                    color: Colors.white.withOpacity(0.95)),
+                    color: Colors.white.withAlpha(242)),
                 const Icon(Icons.handshake, size: 24,
                     color: Color(0xFF92400E)),
               ]),
@@ -602,7 +607,7 @@ class _HeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        Text('ShareMeal', style: AppTextStyles.brandName),
+        const Text('ShareMeal', style: AppTextStyles.brandName),
         const SizedBox(height: 8),
 
         SingleChildScrollView(
@@ -611,14 +616,14 @@ class _HeroSection extends StatelessWidget {
             Container(width: 24, height: 1,
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(2),
                     gradient: LinearGradient(colors: [Colors.transparent,
-                      AppColors.amberLt.withOpacity(0.55)]))),
+                      AppColors.amberLt.withAlpha(140)]))),
             const SizedBox(width: 8),
-            Text('REDUCING WASTE · FEEDING HOPE', style: AppTextStyles.tagline),
+            const Text('REDUCING WASTE · FEEDING HOPE', style: AppTextStyles.tagline),
             const SizedBox(width: 8),
             Container(width: 24, height: 1,
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(2),
                     gradient: LinearGradient(colors: [
-                      AppColors.amberLt.withOpacity(0.55), Colors.transparent]))),
+                      AppColors.amberLt.withAlpha(140), Colors.transparent]))),
           ]),
         ),
         const SizedBox(height: 20),
@@ -656,7 +661,7 @@ class _StatDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Container(width: 1, height: 36,
-          color: AppColors.ink.withOpacity(0.08));
+          color: AppColors.ink.withAlpha(20));
 }
 
 // ─── Pill ─────────────────────────────────────────────────────────────────────
@@ -673,7 +678,7 @@ class _Pill extends StatelessWidget {
             decoration: BoxDecoration(shape: BoxShape.circle,
                 color: AppColors.sage,
                 boxShadow: [BoxShadow(
-                    color: AppColors.sage.withOpacity(0.5), blurRadius: 6)])),
+                    color: AppColors.sage.withAlpha(128), blurRadius: 6)])),
         const SizedBox(width: 7),
         Text(label,
             style: AppTextStyles.pillLabel.copyWith(color: AppColors.sage)),
@@ -723,7 +728,7 @@ class _RoleToggle extends StatelessWidget {
                   Icon(
                     icon,
                     size: 15,
-                    color: active ? Colors.white : AppColors.ink.withOpacity(0.38),
+                    color: active ? Colors.white : AppColors.ink.withAlpha(97),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -733,7 +738,7 @@ class _RoleToggle extends StatelessWidget {
                       fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                       color: active
                           ? Colors.white
-                          : AppColors.ink.withOpacity(0.38),
+                          : AppColors.ink.withAlpha(97),
                     ),
                   ),
                 ],
@@ -818,7 +823,7 @@ class _FocusFieldState extends State<_FocusField> {
             style: AppTextStyles.body,
             decoration: InputDecoration(
               hintText: widget.hint,
-              hintStyle: TextStyle(color: AppColors.ink.withOpacity(0.25),
+              hintStyle: TextStyle(color: AppColors.ink.withAlpha(64),
                   fontSize: 13.5, fontWeight: FontWeight.w300),
               prefixIcon: AnimatedOpacity(
                 opacity: _focused ? 0.65 : 0.30,
@@ -832,7 +837,7 @@ class _FocusFieldState extends State<_FocusField> {
                   : null,
               border: InputBorder.none,
               contentPadding: _hasError
-                  ? EdgeInsets.fromLTRB(16, 12, 16, 12) // Reduced padding for error text
+                  ? const EdgeInsets.fromLTRB(16, 12, 16, 12) // Reduced padding for error text
                   : AppDimensions.fieldContentPad,
             ),
           ),
@@ -843,7 +848,7 @@ class _FocusFieldState extends State<_FocusField> {
             padding: const EdgeInsets.only(left: 2),
             child: Text(
               _errorMessage!,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 color: AppColors.terr,
                 fontWeight: FontWeight.w500,
@@ -882,13 +887,13 @@ class _GlowCTAState extends State<_GlowCTAButton> {
           child: Stack(children: [
             AnimatedBuilder(
               animation: widget.glowAnim,
-              builder: (_, __) => Positioned.fill(
+              builder: (_, _) => Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
                     boxShadow: [BoxShadow(
-                      color: AppColors.sage.withOpacity(
-                          (0.32 + widget.glowAnim.value * 0.18).clamp(0.0, 1.0)),
+                      color: AppColors.sage.withAlpha(
+                          ((0.32 + widget.glowAnim.value * 0.18).clamp(0.0, 1.0) * 255).round()),
                       blurRadius: 18, spreadRadius: 2,
                     )],
                   ),
@@ -899,7 +904,7 @@ class _GlowCTAState extends State<_GlowCTAButton> {
               decoration: BoxDecoration(
                 gradient: AppGradients.sageButton,
                 borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                boxShadow: [BoxShadow(color: AppColors.sage.withOpacity(0.30),
+                boxShadow: [BoxShadow(color: AppColors.sage.withAlpha(77),
                     blurRadius: 20, offset: const Offset(0, 8))],
               ),
               alignment: Alignment.center,

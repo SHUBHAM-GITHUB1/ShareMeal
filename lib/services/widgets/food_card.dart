@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/food_post.dart';
-import '../constants/app_theme.dart';
+import 'package:sharemeal/models/food_post.dart';
+import 'package:sharemeal/constants/app_theme.dart';
 
 class FoodCard extends StatelessWidget {
   final FoodPost post;
@@ -32,12 +32,12 @@ class FoodCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.ink.withOpacity(0.06),
+            color: AppColors.ink.withAlpha(15),
             blurRadius: 18,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: AppColors.ink.withOpacity(0.03),
+            color: AppColors.ink.withAlpha(8),
             blurRadius: 6,
             offset: const Offset(0, 1),
           ),
@@ -59,7 +59,7 @@ class FoodCard extends StatelessWidget {
                           height: AppDimensions.imageHeight,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             height: AppDimensions.imageHeight,
                             color: AppColors.sageBg,
                             child: const Center(
@@ -73,7 +73,7 @@ class FoodCard extends StatelessWidget {
                     height: AppDimensions.imageHeight,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       height: AppDimensions.imageHeight,
                       color: AppColors.sageBg,
                       child: const Center(
@@ -101,7 +101,7 @@ class FoodCard extends StatelessWidget {
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: (post.isVeg ? AppColors.sage : AppColors.terr)
-                            .withOpacity(0.90),
+                            .withAlpha(230),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -129,14 +129,14 @@ class FoodCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.52),
+                        color: Colors.black.withAlpha(133),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.location_on_rounded,
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.location_on_rounded,
                             size: 11, color: AppColors.amberLt),
-                        const SizedBox(width: 3),
-                        const Text('2.0 km',
+                        SizedBox(width: 3),
+                        Text('2.0 km',
                             style: TextStyle(
                                 fontSize: 10.5,
                                 color: Colors.white,
@@ -174,9 +174,9 @@ class FoodCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: AppColors.amber.withOpacity(0.12),
+                        color: AppColors.amber.withAlpha(31),
                         border: Border.all(
-                            color: AppColors.amber.withOpacity(0.30)),
+                            color: AppColors.amber.withAlpha(77)),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -246,7 +246,7 @@ class FoodCard extends StatelessWidget {
                             BorderRadius.circular(AppDimensions.radiusMd),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.sage.withOpacity(0.28),
+                            color: AppColors.sage.withAlpha(71),
                             blurRadius: 14,
                             offset: const Offset(0, 5),
                           ),
@@ -286,7 +286,7 @@ class FoodCard extends StatelessWidget {
                           color: AppColors.sageBg,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: AppColors.sage.withOpacity(0.20)),
+                              color: AppColors.sage.withAlpha(51)),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(

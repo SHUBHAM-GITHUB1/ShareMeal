@@ -217,9 +217,9 @@ class AppDecorations {
     color:         AppColors.cardSurface,
     borderRadius:  BorderRadius.circular(AppDimensions.radiusXl),
     boxShadow: [
-      BoxShadow(color: AppColors.ink.withOpacity(0.04),
+      BoxShadow(color: AppColors.ink.withAlpha(10),
           blurRadius: 4, offset: const Offset(0, 2)),
-      BoxShadow(color: AppColors.ink.withOpacity(0.10),
+      BoxShadow(color: AppColors.ink.withAlpha(26),
           blurRadius: 48, offset: const Offset(0, 16)),
     ],
   );
@@ -229,9 +229,9 @@ class AppDecorations {
     color:        AppColors.white,
     borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
     boxShadow: [
-      BoxShadow(color: AppColors.ink.withOpacity(0.12),
+      BoxShadow(color: AppColors.ink.withAlpha(31),
           blurRadius: 32, offset: const Offset(0, 8)),
-      BoxShadow(color: AppColors.ink.withOpacity(0.06),
+      BoxShadow(color: AppColors.ink.withAlpha(15),
           blurRadius: 8,  offset: const Offset(0, 2)),
     ],
   );
@@ -248,9 +248,9 @@ class AppDecorations {
     color:         AppColors.fieldBg,
     borderRadius:  BorderRadius.circular(AppDimensions.radiusMd),
     border: Border.all(
-        color: AppColors.sage.withOpacity(0.45), width: 1.5),
+        color: AppColors.sage.withAlpha(115), width: 1.5),
     boxShadow: [
-      BoxShadow(color: AppColors.sage.withOpacity(0.09),
+      BoxShadow(color: AppColors.sage.withAlpha(23),
           spreadRadius: 3, blurRadius: 0),
     ],
   );
@@ -261,36 +261,36 @@ class AppDecorations {
     borderRadius:  BorderRadius.circular(AppDimensions.radiusMd),
     border: Border.all(color: AppColors.terr, width: 1.5),
     boxShadow: [
-      BoxShadow(color: AppColors.terr.withOpacity(0.15),
+      BoxShadow(color: AppColors.terr.withAlpha(38),
           spreadRadius: 3, blurRadius: 0),
     ],
   );
 
   // Sage pill (sign in / create account)
   static BoxDecoration sagePill = BoxDecoration(
-    color:         AppColors.sage.withOpacity(0.09),
-    border:        Border.all(color: AppColors.sage.withOpacity(0.22)),
+    color:         AppColors.sage.withAlpha(23),
+    border:        Border.all(color: AppColors.sage.withAlpha(56)),
     borderRadius:  BorderRadius.circular(30),
   );
 
   // Terracotta pill
   static BoxDecoration terrPill = BoxDecoration(
-    color:         AppColors.terr.withOpacity(0.09),
-    border:        Border.all(color: AppColors.terr.withOpacity(0.20)),
+    color:         AppColors.terr.withAlpha(23),
+    border:        Border.all(color: AppColors.terr.withAlpha(51)),
     borderRadius:  BorderRadius.circular(30),
   );
 
   // Amber live badge
   static BoxDecoration liveBadge = BoxDecoration(
-    color:         AppColors.amberLt.withOpacity(0.20),
-    border:        Border.all(color: AppColors.amberLt.withOpacity(0.35)),
+    color:         AppColors.amberLt.withAlpha(51),
+    border:        Border.all(color: AppColors.amberLt.withAlpha(89)),
     borderRadius:  BorderRadius.circular(20),
   );
 
   // Role toggle container
   static BoxDecoration toggleBg = BoxDecoration(
     color:  AppColors.sageBg,
-    border: Border.all(color: AppColors.sage.withOpacity(0.15)),
+    border: Border.all(color: AppColors.sage.withAlpha(38)),
     borderRadius: BorderRadius.circular(14),
   );
 
@@ -301,7 +301,7 @@ class AppDecorations {
     ),
     borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
     boxShadow: [
-      BoxShadow(color: AppColors.sage.withOpacity(0.30),
+      BoxShadow(color: AppColors.sage.withAlpha(77),
           blurRadius: 14, offset: const Offset(0, 4)),
     ],
   );
@@ -386,27 +386,27 @@ class AppTheme {
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.offWhite,
 
-    colorScheme: ColorScheme(
+    colorScheme: const ColorScheme(
       brightness:             Brightness.light,
       primary:                AppColors.sage,
       onPrimary:              Colors.white,
-      primaryContainer:       const Color(0xFFEAF5EE),
+      primaryContainer:       Color(0xFFEAF5EE),
       onPrimaryContainer:     AppColors.sageDk,
       secondary:              AppColors.amber,
       onSecondary:            AppColors.ink,
-      secondaryContainer:     const Color(0xFFFEF3C7),
+      secondaryContainer:     Color(0xFFFEF3C7),
       onSecondaryContainer:   AppColors.amberDk,
       tertiary:               AppColors.terr,
       onTertiary:             Colors.white,
-      tertiaryContainer:      const Color(0xFFFDE8DF),
-      onTertiaryContainer:    const Color(0xFF7A2810),
+      tertiaryContainer:      Color(0xFFFDE8DF),
+      onTertiaryContainer:    Color(0xFF7A2810),
       surface:                AppColors.offWhite,
       onSurface:              AppColors.ink,
-      surfaceContainerHighest: const Color(0xFFEEF7F2),
+      surfaceContainerHighest: Color(0xFFEEF7F2),
       error:                  AppColors.terr,
       onError:                Colors.white,
       outline:                AppColors.ink3,
-      outlineVariant:         const Color(0xFFCDD9D4),
+      outlineVariant:         Color(0xFFCDD9D4),
       shadow:                 AppColors.ink,
       scrim:                  AppColors.ink,
       inverseSurface:         AppColors.ink,
@@ -493,7 +493,7 @@ class AppTheme {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
         borderSide: BorderSide(
-            color: AppColors.sage.withOpacity(0.45), width: 1.5),
+            color: AppColors.sage.withAlpha(115), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
@@ -503,7 +503,7 @@ class AppTheme {
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
         borderSide: const BorderSide(color: AppColors.terr, width: 1.5),
       ),
-      hintStyle: TextStyle(color: AppColors.ink.withOpacity(0.28),
+      hintStyle: TextStyle(color: AppColors.ink.withAlpha(71),
           fontWeight: FontWeight.w300, fontSize: 13.5),
       errorStyle: const TextStyle(color: AppColors.terr, fontSize: 11),
       contentPadding: AppDimensions.fieldContentPad,
@@ -549,7 +549,7 @@ class AppTheme {
       backgroundColor:  AppColors.sageBg,
       selectedColor:    AppColors.sage,
       labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      side: BorderSide(color: AppColors.sageLt.withOpacity(0.5)),
+      side: BorderSide(color: AppColors.sageLt.withAlpha(128)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     ),
@@ -562,7 +562,7 @@ class AppTheme {
     ),
 
     dividerTheme: DividerThemeData(
-      color:     AppColors.ink.withOpacity(0.08),
+      color:     AppColors.ink.withAlpha(20),
       thickness: 1,
       space:     1,
     ),
@@ -573,7 +573,7 @@ class AppTheme {
               ? AppColors.sage : Colors.white),
       trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? AppColors.sage.withOpacity(0.40)
+              ? AppColors.sage.withAlpha(102)
               : const Color(0xFFCDD9D4)),
     ),
 
@@ -604,31 +604,31 @@ class AppTheme {
   static final dark = ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: const Color(0xFF0F1419),
-    colorScheme: ColorScheme(
+    colorScheme: const ColorScheme(
       brightness:             Brightness.dark,
       primary:                AppColors.sageLt,
       onPrimary:              Colors.white,
-      primaryContainer:       const Color(0xFF1F4D3A),
-      onPrimaryContainer:     const Color(0xFFA8E6D0),
+      primaryContainer:       Color(0xFF1F4D3A),
+      onPrimaryContainer:     Color(0xFFA8E6D0),
       secondary:              AppColors.amber,
       onSecondary:            AppColors.ink,
-      secondaryContainer:     const Color(0xFF4D3A00),
-      onSecondaryContainer:   const Color(0xFFFFE8A8),
+      secondaryContainer:     Color(0xFF4D3A00),
+      onSecondaryContainer:   Color(0xFFFFE8A8),
       tertiary:               AppColors.terrLt,
       onTertiary:             Colors.white,
-      tertiaryContainer:      const Color(0xFF5A2A15),
-      onTertiaryContainer:    const Color(0xFFFFD9C8),
-      surface:                const Color(0xFF1A1F26),
-      onSurface:              const Color(0xFFE8EFF0),
-      surfaceContainerHighest: const Color(0xFF2A3139),
+      tertiaryContainer:      Color(0xFF5A2A15),
+      onTertiaryContainer:    Color(0xFFFFD9C8),
+      surface:                Color(0xFF1A1F26),
+      onSurface:              Color(0xFFE8EFF0),
+      surfaceContainerHighest: Color(0xFF2A3139),
       error:                  AppColors.terrLt,
       onError:                Colors.white,
-      outline:                const Color(0xFF5A7A68),
-      outlineVariant:         const Color(0xFF3A4E42),
+      outline:                Color(0xFF5A7A68),
+      outlineVariant:         Color(0xFF3A4E42),
       shadow:                 Colors.black87,
       scrim:                  Colors.black87,
-      inverseSurface:         const Color(0xFFE8EFF0),
-      onInverseSurface:       const Color(0xFF0F1419),
+      inverseSurface:         Color(0xFFE8EFF0),
+      onInverseSurface:       Color(0xFF0F1419),
       inversePrimary:         AppColors.sage,
     ),
     fontFamily: 'Georgia',
@@ -695,7 +695,7 @@ class AppTheme {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
         borderSide: BorderSide(
-            color: AppColors.sageLt.withOpacity(0.6), width: 1.5),
+            color: AppColors.sageLt.withAlpha(153), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
@@ -723,7 +723,7 @@ class AppTheme {
       backgroundColor:  const Color(0xFF252B33),
       selectedColor:    AppColors.sageLt,
       labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFFE8EFF0)),
-      side: BorderSide(color: AppColors.sageLt.withOpacity(0.3)),
+      side: BorderSide(color: AppColors.sageLt.withAlpha(77)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     ),
@@ -733,8 +733,8 @@ class AppTheme {
       elevation:        6,
       shape: CircleBorder(),
     ),
-    dividerTheme: DividerThemeData(
-      color:     const Color(0xFF3A4E42),
+    dividerTheme: const DividerThemeData(
+      color:     Color(0xFF3A4E42),
       thickness: 1,
       space:     1,
     ),
@@ -744,7 +744,7 @@ class AppTheme {
               ? AppColors.sageLt : const Color(0xFF7A8288)),
       trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? AppColors.sageLt.withOpacity(0.50)
+              ? AppColors.sageLt.withAlpha(128)
               : const Color(0xFF3A4E42)),
     ),
     checkboxTheme: CheckboxThemeData(
