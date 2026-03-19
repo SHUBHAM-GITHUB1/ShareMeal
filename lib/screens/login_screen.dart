@@ -161,11 +161,10 @@ class _LoginScreenState extends State<LoginScreen>
         await _authService.signUp(
           email:    _email.text.trim(),
           password: _password.text,
-          orgName:  _org.text.trim().isEmpty
-                        ? 'Organization'
-                        : _org.text.trim(),
+          orgName:  _org.text.trim().isEmpty ? 'Organization' : _org.text.trim(),
           address:  _addr.text.trim(),
-          role:     _role,             // 'Donor' or 'NGO' from toggle
+          role:     _role,
+          phone:    _phone.text.trim(),
         );
 
         if (!mounted) return;

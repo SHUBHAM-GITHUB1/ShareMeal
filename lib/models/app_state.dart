@@ -6,12 +6,14 @@ class UserProfile {
   final String orgName;
   final String address;
   final String role;
+  final String phone;
 
   const UserProfile({
     required this.email,
     required this.orgName,
     required this.address,
     required this.role,
+    this.phone = '',
   });
 
   factory UserProfile.fromMap(Map<String, dynamic> data) => UserProfile(
@@ -19,6 +21,7 @@ class UserProfile {
         orgName: data['orgName'] as String? ?? '',
         address: data['address'] as String? ?? '',
         role:    data['role']    as String? ?? 'Donor',
+        phone:   data['phone']   as String? ?? '',
       );
 }
 
