@@ -20,19 +20,29 @@ class DonorDashboard extends StatefulWidget {
   State<DonorDashboard> createState() => _DonorDashboardState();
 }
 
-class _DonorDashboardState extends State<DonorDashboard> {
+class _DonorDashboardState extends State<DonorDashboard>
+    with SingleTickerProviderStateMixin {
   final _formKey  = GlobalKey<FormState>();
   final _itemCtrl = TextEditingController();
   final _qtyCtrl  = TextEditingController();
   bool _isVeg        = true;
   bool _isAiLoading  = false;
+  bool _isPosting    = false;
   String? _pickedImageB64;
   PickedLocation? _pickedLocation;
+  late final TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
 
   @override
   void dispose() {
     _itemCtrl.dispose();
     _qtyCtrl.dispose();
+    _tabCtrl.dispose();
     super.dispose();
   }
 
@@ -47,15 +57,31 @@ class _DonorDashboardState extends State<DonorDashboard> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: _SharedAppBar(title: 'Donor Portal', actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded, size: 22),
-          onPressed: () {
-            setState(() {});
-            _snack(context, '✓ Refreshed', AppColors.sage);
-          },
+      appBar: _SharedAppBar(
+        title: 'Donor Portal',
+        bottom: TabBar(
+          controller: _tabCtrl,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          tabs: const [
+            Tab(text: 'Active'),
+            Tab(text: 'Pending Approval'),
+          ],
         ),
-      ]),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 22),
+            onPressed: () {
+              setState(() {});
+              _snack(context, '✓ Refreshed', AppColors.sage);
+            },
+          ),
+        ],
+      ),
       drawer: _SharedDrawer(user: user, appState: appState),
       body: StreamBuilder<List<FoodPost>>(
         stream: MealService().streamMyMeals(),
@@ -63,15 +89,28 @@ class _DonorDashboardState extends State<DonorDashboard> {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final posts = snap.data ?? [];
-          return posts.isEmpty
-              ? const _EmptyState(isDonor: true)
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
-                  itemCount: posts.length,
-                  itemBuilder: (_, i) =>
-                      _DonorPostCard(post: posts[i], index: i),
-                );
+          final all = snap.data ?? [];
+          final active  = all.where((p) => p.status == 'available').toList();
+          final pending = all.where((p) => p.status == 'picked_up' || p.status == 'claimed').toList();
+          return TabBarView(
+            controller: _tabCtrl,
+            children: [
+              active.isEmpty
+                  ? const _EmptyState(isDonor: true)
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
+                      itemCount: active.length,
+                      itemBuilder: (_, i) => _DonorPostCard(post: active[i], index: i),
+                    ),
+              pending.isEmpty
+                  ? const _EmptyTabState(message: 'No pending pickups')
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                      itemCount: pending.length,
+                      itemBuilder: (_, i) => _DonorPostCard(post: pending[i], index: i),
+                    ),
+            ],
+          );
         },
       ),
       floatingActionButton: _GradientFAB(
@@ -83,6 +122,7 @@ class _DonorDashboardState extends State<DonorDashboard> {
   void _showForm(BuildContext context, String donorName) {
     setState(() {
       _isVeg = true;
+      _isPosting = false;
       _pickedImageB64 = null;
       _pickedLocation = null;
     });
@@ -337,7 +377,7 @@ class _DonorDashboardState extends State<DonorDashboard> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isPosting ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.ink2,
                       side: const BorderSide(color: AppColors.fieldBorder),
@@ -354,8 +394,10 @@ class _DonorDashboardState extends State<DonorDashboard> {
                   flex: 2,
                   child: _GradientButton(
                     label: 'Post Donation',
-                    onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
+                    isLoading: _isPosting,
+                    onPressed: _isPosting ? null : () async {
+                      if (_formKey.currentState!.validate()) {
+                        setModal(() => _isPosting = true);
                         try {
                           await MealService().postMeal(
                             item:            _fmt(_itemCtrl.text.trim()),
@@ -378,6 +420,7 @@ class _DonorDashboardState extends State<DonorDashboard> {
                           _snack(context, '✅ Food posted successfully!', AppColors.sage);
                         } catch (e) {
                           if (!context.mounted) return;
+                          setModal(() => _isPosting = false);
                           _snack(context, 'Error: $e', AppColors.terr);
                         }
                       }
@@ -506,15 +549,18 @@ class _DonorPostCardState extends State<_DonorPostCard> {
     AppResponsive.init(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = _post.isVeg ? AppColors.sage : AppColors.terr;
-    final isClaimed = _post.status == 'claimed';
+    final isClaimed   = _post.status == 'claimed';
+    final isPickedUp  = _post.status == 'picked_up';
+    final isActive    = _post.status == 'available';
+    final borderColor = isPickedUp ? AppColors.sage
+        : isClaimed ? AppColors.amber : accent;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1F26) : AppColors.white,
         borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
-        border: Border(left: BorderSide(
-            color: isClaimed ? AppColors.amber : accent, width: 3)),
+        border: Border(left: BorderSide(color: borderColor, width: 3)),
         boxShadow: [
           BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withAlpha(38),
               blurRadius: 16, offset: const Offset(0, 4)),
@@ -523,7 +569,6 @@ class _DonorPostCardState extends State<_DonorPostCard> {
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // ── Food image thumbnail ──
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: SizedBox(
@@ -532,156 +577,206 @@ class _DonorPostCardState extends State<_DonorPostCard> {
           ),
         ),
         Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SizedBox(width: 2),
-
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                Expanded(child: Text(_post.item,
-                    style: AppTextStyles.body.copyWith(
-                        fontWeight: FontWeight.w700, fontSize: 15.5))),
-                isClaimed ? _ClaimedBadge() : _StatusBadge(),
-              ]),
-              const SizedBox(height: 6),
-
-              Row(children: [
-                const Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
-                const SizedBox(width: 4),
-                Text(_post.qty,
-                    style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.ink2)),
-                const SizedBox(width: 12),
-                const Icon(Icons.access_time_rounded, size: 13,
-                    color: AppColors.ink3),
-                const SizedBox(width: 4),
-                Text(DateFormat('hh:mm a').format(_post.time),
-                    style: AppTextStyles.bodySmall),
-                const SizedBox(width: 12),
-                Container(width: 8, height: 8,
-                    decoration: BoxDecoration(
-                        shape: BoxShape.circle, color: accent)),
-                const SizedBox(width: 4),
-                Text(_post.isVeg ? 'Veg' : 'Non-Veg',
-                    style: TextStyle(fontSize: 11.5,
-                        fontWeight: FontWeight.w600, color: accent)),
-              ]),
-
-              if (_post.nutrients != null) ...[
-                const SizedBox(height: 10),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  _NutrientChip('Cal',    _post.nutrients!.caloriesStr, Colors.deepOrange),
-                  _NutrientChip('Protein',   _post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
-                  _NutrientChip('Carbs',     _post.nutrients!.carbsStr,    AppColors.amber),
-                  _NutrientChip('Fat',       _post.nutrients!.fatStr,      AppColors.terr),
-                ]),
-              ],
-
-              // ── Pickup address ──
-              if (_post.locationAddress != null &&
-                  _post.locationAddress!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: AppColors.sageBg,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: AppColors.sage.withAlpha(51)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.location_on_rounded,
-                        size: 13, color: AppColors.sage),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _post.locationAddress!,
-                        style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.sage,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11.5),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ]),
-                ),
-              ],
-
-              // ── Confirm Pickup button (only shows when claimed) ──
-              if (isClaimed) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.amber.withAlpha(20),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.amber.withAlpha(64)),
-                  ),
-                  child: const Row(children: [
-                    Icon(Icons.directions_bike_outlined,
-                        size: 15, color: AppColors.amberDk),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text('NGO is on the way to pick up!',
-                          style: TextStyle(fontSize: 12,
-                              color: AppColors.amberDk,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ]),
-                ),
-                const SizedBox(height: 10),
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(_post.item,
+                  style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w700, fontSize: 15.5))),
+              if (isPickedUp) _PickedUpBadge()
+              else if (isClaimed) _ClaimedBadge()
+              else _StatusBadge(),
+              if (isActive) ...[
+                const SizedBox(width: 6),
                 GestureDetector(
-                  onTap: () => _confirmPickupDialog(context),
+                  onTap: () => _deleteDialog(context),
                   child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [
-                        AppColors.amber,
-                        AppColors.amberDk,
-                      ]),
-                      borderRadius: BorderRadius.circular(
-                          AppDimensions.radiusMd),
-                      boxShadow: [BoxShadow(
-                          color: AppColors.amber.withAlpha(89),
-                          blurRadius: 12, offset: const Offset(0, 4))],
+                      color: AppColors.terr.withAlpha(20),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_circle_outline_rounded,
-                            color: Colors.white, size: 18),
-                        SizedBox(width: 8),
-                        Text('CONFIRM PICKUP',
-                            style: TextStyle(color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13, letterSpacing: 1.2)),
-                      ],
-                    ),
+                    child: const Icon(Icons.delete_outline_rounded,
+                        size: 16, color: AppColors.terr),
                   ),
                 ),
               ],
+            ]),
+            const SizedBox(height: 6),
+            Row(children: [
+              const Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
+              const SizedBox(width: 4),
+              Text(_post.qty, style: AppTextStyles.bodySmall.copyWith(color: AppColors.ink2)),
+              const SizedBox(width: 12),
+              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.ink3),
+              const SizedBox(width: 4),
+              Text(DateFormat('hh:mm a').format(_post.time), style: AppTextStyles.bodySmall),
+              const SizedBox(width: 12),
+              Container(width: 8, height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: accent)),
+              const SizedBox(width: 4),
+              Text(_post.isVeg ? 'Veg' : 'Non-Veg',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: accent)),
+            ]),
+            if (_post.nutrients != null) ...[
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                _NutrientChip('Cal',     _post.nutrients!.caloriesStr, Colors.deepOrange),
+                _NutrientChip('Protein', _post.nutrients!.proteinStr,  const Color(0xFF5B8DEF)),
+                _NutrientChip('Carbs',   _post.nutrients!.carbsStr,    AppColors.amber),
+                _NutrientChip('Fat',     _post.nutrients!.fatStr,      AppColors.terr),
+              ]),
             ],
-          )),
-        ]),
-        ), // end inner Padding
-      ]), // end Column
+            if (_post.locationAddress != null && _post.locationAddress!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.sageBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.sage.withAlpha(51)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.location_on_rounded, size: 13, color: AppColors.sage),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(_post.locationAddress!,
+                      style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.sage, fontWeight: FontWeight.w600, fontSize: 11.5),
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ]),
+              ),
+            ],
+            // ── Claimed: NGO on the way — donor marks food as handed over ──
+            if (isClaimed) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.amber.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.amber.withAlpha(64)),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.directions_bike_outlined, size: 15, color: AppColors.amberDk),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('NGO has claimed — tap below once they collect the food',
+                      style: TextStyle(fontSize: 12, color: AppColors.amberDk,
+                          fontWeight: FontWeight.w600))),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _markPickedUpDialog(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [AppColors.amber, AppColors.amberDk]),
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                    boxShadow: [BoxShadow(
+                        color: AppColors.amber.withAlpha(89),
+                        blurRadius: 12, offset: const Offset(0, 4))],
+                  ),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.inventory_2_outlined, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text('MARK AS PICKED UP', style: TextStyle(color: Colors.white,
+                        fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 1.2)),
+                  ]),
+                ),
+              ),
+            ],
+
+          ]),
+        ),
+      ]),
     );
   }
 
-  // ── Confirm Pickup Dialog ──────────────────────────────────────
-  void _confirmPickupDialog(BuildContext context) {
+  // ── Delete Dialog ──────────────────────────────────────────────
+  void _deleteDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        backgroundColor: AppColors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.terr.withAlpha(20),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: AppColors.terr, size: 26),
+            ),
+            const SizedBox(height: 14),
+            const Text('Delete Post', style: AppTextStyles.sectionHead),
+            const SizedBox(height: 6),
+            Text('Remove "${_post.item}" from your donations?',
+                style: AppTextStyles.bodySmall, textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.ink2,
+                      side: const BorderSide(color: AppColors.fieldBorder),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
+                    ),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await MealService().deleteMeal(_post.id);
+                        if (!context.mounted) return;
+                        _snack(context, '🗑️ Post deleted', AppColors.terr);
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        _snack(context, 'Error: $e', AppColors.terr);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.terr,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
+                    ),
+                    child: const Text('Delete',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ── Mark as Picked Up Dialog ──────────────────────────────────
+  void _markPickedUpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         backgroundColor: AppColors.white,
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -696,38 +791,31 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                     color: AppColors.amber.withAlpha(89),
                     blurRadius: 16, offset: const Offset(0, 5))],
               ),
-              child: const Icon(Icons.handshake_outlined,
+              child: const Icon(Icons.inventory_2_outlined,
                   color: Colors.white, size: 28),
             ),
             const SizedBox(height: 16),
-
-            const Text('Confirm Pickup', style: AppTextStyles.sectionHead),
+            const Text('Mark as Picked Up', style: AppTextStyles.sectionHead),
             const SizedBox(height: 6),
-            const Text('Did the NGO successfully pick up:',
-                style: AppTextStyles.bodySmall),
+            const Text('Confirm the NGO has physically collected:',
+                style: AppTextStyles.bodySmall, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.amber.withAlpha(20),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: AppColors.amber.withAlpha(56)),
+                border: Border.all(color: AppColors.amber.withAlpha(56)),
               ),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(_post.item, style: AppTextStyles.body.copyWith(
                     fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text('Qty: ${_post.qty}',
-                    style: AppTextStyles.bodySmall),
+                Text('Qty: ${_post.qty}', style: AppTextStyles.bodySmall),
               ]),
             ),
             const SizedBox(height: 20),
-
             Row(children: [
               Expanded(
                 child: SizedBox(
@@ -739,8 +827,7 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                       side: const BorderSide(color: AppColors.fieldBorder),
                       padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                              AppDimensions.radiusMd)),
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
                     ),
                     child: const Text('Not Yet',
                         style: TextStyle(fontWeight: FontWeight.w600)),
@@ -753,31 +840,29 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                   height: 52,
                   child: GestureDetector(
                     onTap: () async {
+                      Navigator.pop(ctx);
                       try {
                         await MealService().confirmPickup(_post.id);
                         if (!context.mounted) return;
-                        Navigator.pop(ctx);
                         _snack(context,
                             '🎉 Pickup confirmed! Food reached the needy.',
                             AppColors.sage);
                       } catch (e) {
                         if (!context.mounted) return;
-                        _snack(context, 'Error: $e', AppColors.terr);
+                        _snack(context, 'Error: \$e', AppColors.terr);
                       }
                     },
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                             colors: [AppColors.amber, AppColors.amberDk]),
-                        borderRadius: BorderRadius.circular(
-                            AppDimensions.radiusMd),
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
                         boxShadow: [BoxShadow(
                             color: AppColors.amber.withAlpha(71),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4))],
+                            blurRadius: 10, offset: const Offset(0, 4))],
                       ),
                       alignment: Alignment.center,
-                      child: const Text('Yes, Confirmed!',
+                      child: const Text('Yes, Picked Up!',
                           style: TextStyle(color: Colors.white,
                               fontWeight: FontWeight.w700)),
                     ),
@@ -790,17 +875,43 @@ class _DonorPostCardState extends State<_DonorPostCard> {
       ),
     );
   }
+
 }
 
+
+// ─── Empty Tab State ─────────────────────────────────────────────────────────
+class _EmptyTabState extends StatelessWidget {
+  final String message;
+  const _EmptyTabState({required this.message});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            color: AppColors.amber.withAlpha(31),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.inbox_outlined, size: 38, color: AppColors.amber),
+        ),
+        const SizedBox(height: 16),
+        Text(message, style: AppTextStyles.sectionHead),
+      ]),
+    );
+  }
+}
 
 // ─── Shared AppBar ────────────────────────────────────────────────────────────
 class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget> actions;
-  const _SharedAppBar({required this.title, this.actions = const []});
+  final TabBar? bottom;
+  const _SharedAppBar({required this.title, this.actions = const [], this.bottom});
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+      kToolbarHeight + (bottom != null ? kTextTabBarHeight : 0));
 
   @override
   Widget build(BuildContext context) {
@@ -810,6 +921,7 @@ class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: Colors.white,
       elevation: 0,
       titleSpacing: 0,
+      bottom: bottom,
       flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppGradients.heroBar)),
       title: Row(children: [
@@ -902,6 +1014,35 @@ class _SharedDrawer extends StatelessWidget {
             subtitle: (user?.address?.trim().isNotEmpty == true) ? user!.address : 'Not set', color: AppColors.sage),
         const Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
 
+        // ── Donation History ────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          child: ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                  color: AppColors.amber.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.history_rounded,
+                  color: AppColors.amber, size: 18),
+            ),
+            title: Text('Donation History',
+                style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.ink3),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            onTap: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const _DonationHistorySheet(),
+              );
+            },
+          ),
+        ),
+        const Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
+
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: SwitchListTile(
@@ -944,8 +1085,6 @@ class _SharedDrawer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14)),
             onTap: () async {
               await appState.logout();
-              // AuthWrapper automatically detects logout
-              // and redirects to LoginScreen on its own
               if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const AuthWrapper()),
@@ -955,6 +1094,104 @@ class _SharedDrawer extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+// ─── Donation History Bottom Sheet ────────────────────────────────────────────
+class _DonationHistorySheet extends StatelessWidget {
+  const _DonationHistorySheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.82,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F1419) : AppColors.offWhite,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(children: [
+          // Handle + header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+            child: Column(children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.fieldBorder,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.amber.withAlpha(31),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(Icons.history_rounded, color: AppColors.amber, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Donation History',
+                      style: AppTextStyles.cardHead.copyWith(fontSize: 17)),
+                  const Text('Completed pickups by NGOs',
+                      style: AppTextStyles.bodySmall),
+                ]),
+              ]),
+              const SizedBox(height: 12),
+              const Divider(color: AppColors.fieldBorder),
+            ]),
+          ),
+          Expanded(
+            child: StreamBuilder<List<HistoryEntry>>(
+              stream: MealService().streamDonationHistory(),
+              builder: (ctx, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: AppColors.sage));
+                }
+                final entries = snap.data ?? [];
+                if (entries.isEmpty) {
+                  return Center(
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(
+                        width: 72, height: 72,
+                        decoration: BoxDecoration(
+                          color: AppColors.amber.withAlpha(26),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.history_rounded, size: 34, color: AppColors.amber),
+                      ),
+                      const SizedBox(height: 14),
+                      Text('No history yet', style: AppTextStyles.sectionHead),
+                      const SizedBox(height: 6),
+                      const Text('Confirmed pickups will appear here',
+                          style: AppTextStyles.bodyMuted),
+                    ]),
+                  );
+                }
+                return ListView.builder(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+                  itemCount: entries.length,
+                  itemBuilder: (_, i) => _HistoryCard(
+                    entry: entries[i],
+                    partnerLabel: 'Picked up by',
+                    accentColor: AppColors.sage,
+                  ),
+                );
+              },
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -1027,8 +1264,9 @@ class _GradientFAB extends StatelessWidget {
 // ─── Gradient Button ──────────────────────────────────────────────────────────
 class _GradientButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
-  const _GradientButton({required this.label, required this.onPressed});
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  const _GradientButton({required this.label, required this.onPressed, this.isLoading = false});
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -1042,9 +1280,15 @@ class _GradientButton extends StatelessWidget {
               blurRadius: 14, offset: const Offset(0, 5))],
         ),
         alignment: Alignment.center,
-        child: Text(label,
-            style: AppTextStyles.ctaButton.copyWith(
-                letterSpacing: 0.5, fontSize: 14)),
+        child: isLoading
+            ? const SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5),
+              )
+            : Text(label,
+                style: AppTextStyles.ctaButton.copyWith(
+                    letterSpacing: 0.5, fontSize: 14)),
       ),
     );
   }
@@ -1250,6 +1494,27 @@ void _snack(BuildContext context, String msg, Color color) {
   ));
 }
 
+class _PickedUpBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.sage.withAlpha(31),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.sage.withAlpha(77)),
+      ),
+      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.inventory_2_outlined, size: 10, color: AppColors.sage),
+        SizedBox(width: 5),
+        Text('Picked Up', style: TextStyle(
+            fontSize: 10.5, color: AppColors.sage,
+            fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
 class _ClaimedBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1270,4 +1535,114 @@ class _ClaimedBadge extends StatelessWidget {
       ]),
     );
   }
+}
+
+// ─── History Card (shared by Donor & NGO history sheets) ──────────────────────
+class _HistoryCard extends StatelessWidget {
+  final HistoryEntry entry;
+  final String partnerLabel;
+  final Color accentColor;
+  const _HistoryCard({
+    required this.entry,
+    required this.partnerLabel,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final vegColor = entry.isVeg ? AppColors.sage : AppColors.terr;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F26) : AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: accentColor, width: 3)),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : AppColors.ink).withAlpha(30),
+            blurRadius: 12, offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(children: [
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 60, height: 60,
+              child: _imgPlaceholder(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(entry.item,
+                      style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700, fontSize: 14.5),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: accentColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: accentColor.withAlpha(56)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.check_circle_rounded, size: 10, color: accentColor),
+                    const SizedBox(width: 4),
+                    Text('Done', style: TextStyle(
+                        fontSize: 10, color: accentColor,
+                        fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.scale_outlined, size: 12, color: AppColors.ink3),
+                const SizedBox(width: 4),
+                Text(entry.qty, style: AppTextStyles.bodySmall),
+                const SizedBox(width: 10),
+                Container(width: 6, height: 6,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: vegColor)),
+                const SizedBox(width: 4),
+                Text(entry.isVeg ? 'Veg' : 'Non-Veg',
+                    style: TextStyle(fontSize: 11, color: vegColor, fontWeight: FontWeight.w600)),
+              ]),
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.handshake_outlined, size: 12, color: AppColors.ink3),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text('$partnerLabel: ${entry.partnerName}',
+                      style: AppTextStyles.bodySmall.copyWith(fontSize: 11.5),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ]),
+              const SizedBox(height: 3),
+              Row(children: [
+                const Icon(Icons.access_time_rounded, size: 12, color: AppColors.ink3),
+                const SizedBox(width: 4),
+                Text(
+                  DateFormat('dd MMM yyyy, hh:mm a').format(entry.completedAt),
+                  style: AppTextStyles.bodySmall.copyWith(fontSize: 10.5),
+                ),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _imgPlaceholder() => Container(
+    color: AppColors.sageBg,
+    child: const Center(child: Icon(Icons.fastfood_outlined, size: 28, color: AppColors.sage)),
+  );
 }

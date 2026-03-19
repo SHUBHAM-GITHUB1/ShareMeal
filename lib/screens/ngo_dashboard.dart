@@ -2,12 +2,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/models/food_post.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/login_screen.dart';
 import 'package:sharemeal/constants/app_responsive.dart';
 import 'package:sharemeal/services/meal_service.dart';
+import 'package:sharemeal/services/notification_service.dart';
+import 'package:sharemeal/services/local_notification_service.dart';
 import 'package:sharemeal/screens/pickup_map_screen.dart';
 
 class NGODashboard extends StatefulWidget {
@@ -16,7 +19,58 @@ class NGODashboard extends StatefulWidget {
   State<NGODashboard> createState() => _NGODashboardState();
 }
 
-class _NGODashboardState extends State<NGODashboard> {
+class _NGODashboardState extends State<NGODashboard>
+    with SingleTickerProviderStateMixin {
+  final _notifService = NotificationService();
+  final Set<String> _seenIds = {};
+  late final TabController _tabCtrl;
+  Position? _myPosition; // live NGO position for distance calc
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+    _saveNgoLocation();
+    _listenForNewNotifications();
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  void _listenForNewNotifications() {
+    _notifService.streamMyNotifications().listen((notifications) {
+      for (final n in notifications) {
+        if (!n.read && !_seenIds.contains(n.id)) {
+          _seenIds.add(n.id);
+          LocalNotificationService.showFoodNotification(
+            id:          n.id.hashCode,
+            donorName:   n.donorName,
+            item:        n.item,
+            qty:         n.qty,
+            distanceKm:  n.distanceKm,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _saveNgoLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getCurrentPosition();
+      if (mounted) setState(() => _myPosition = pos);
+      await NotificationService().saveMyLocation(pos.latitude, pos.longitude);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     AppResponsive.init(context);
@@ -27,6 +81,19 @@ class _NGODashboardState extends State<NGODashboard> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _SharedAppBar(
         title: 'NGO Live Feed',
+        bottom: TabBar(
+          controller: _tabCtrl,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          tabs: const [
+            Tab(text: 'Available'),
+            Tab(text: 'My Pickups'),
+          ],
+        ),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 4),
@@ -55,23 +122,48 @@ class _NGODashboardState extends State<NGODashboard> {
         ],
       ),
       drawer: _SharedDrawer(user: user, appState: appState),
-      body: StreamBuilder<List<FoodPost>>(
-        stream: MealService().streamAvailableMeals(),
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.sage));
-          }
-          final posts = snap.data ?? [];
-          return posts.isEmpty
-              ? const _EmptyState(isDonor: false)
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-                  itemCount: posts.length,
-                  itemBuilder: (_, i) =>
-                      _FoodCard(post: posts[i], index: i),
-                );
-        },
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          // ── Available tab ──
+          StreamBuilder<List<FoodPost>>(
+            stream: MealService().streamAvailableMeals(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: AppColors.sage));
+              }
+              final posts = snap.data ?? [];
+              return posts.isEmpty
+                  ? const _EmptyState(isDonor: false)
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                      itemCount: posts.length,
+                      itemBuilder: (_, i) => _FoodCard(
+                        post: posts[i],
+                        index: i,
+                        myPosition: _myPosition,
+                      ),
+                    );
+            },
+          ),
+          // ── My Claims tab ──
+          StreamBuilder<List<FoodPost>>(
+            stream: MealService().streamMyClaimedMeals(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: AppColors.sage));
+              }
+              final posts = snap.data ?? [];
+              return posts.isEmpty
+                  ? const _EmptyTabState(message: 'No claimed food yet')
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+                      itemCount: posts.length,
+                      itemBuilder: (_, i) => _ClaimedFoodCard(post: posts[i]),
+                    );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -81,7 +173,18 @@ class _NGODashboardState extends State<NGODashboard> {
 class _FoodCard extends StatelessWidget {
   final FoodPost post;
   final int index;
-  const _FoodCard({required this.post, required this.index});
+  final Position? myPosition;
+  const _FoodCard({required this.post, required this.index, this.myPosition});
+
+  String _distanceLabel() {
+    if (myPosition == null || !post.hasLocation) return '— km';
+    final distMeters = Geolocator.distanceBetween(
+      myPosition!.latitude, myPosition!.longitude,
+      post.lat!, post.lng!,
+    );
+    final km = distMeters / 1000;
+    return '${km.toStringAsFixed(1)} km';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,11 +244,15 @@ class _FoodCard extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: Colors.black.withAlpha(140),
                     borderRadius: BorderRadius.circular(20)),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.location_on_rounded,
-                      size: 11, color: AppColors.amberLt),
-                  SizedBox(width: 3),
-                  Text('2.0 km', style: TextStyle(fontSize: 10.5,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    post.hasLocation
+                        ? Icons.location_on_rounded
+                        : Icons.location_off_outlined,
+                    size: 11, color: AppColors.amberLt,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(_distanceLabel(), style: const TextStyle(fontSize: 10.5,
                       color: Colors.white, fontWeight: FontWeight.w600)),
                 ]),
               ),
@@ -328,6 +435,27 @@ class _FoodCard extends StatelessWidget {
                     style: AppTextStyles.bodySmall),
               ])),
             ]),
+
+            // Donor contact
+            if (post.donorPhone.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5B8DEF).withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF5B8DEF).withAlpha(56)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.phone_outlined, size: 15, color: Color(0xFF5B8DEF)),
+                  const SizedBox(width: 8),
+                  Text('Contact Donor: ',
+                      style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                  Text(post.donorPhone, style: AppTextStyles.bodySmall.copyWith(
+                      color: const Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ],
 
             // Nutrition facts
             if (post.nutrients != null) ...[
@@ -684,10 +812,12 @@ class _FoodCard extends StatelessWidget {
 class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget> actions;
-  const _SharedAppBar({required this.title, this.actions = const []});
+  final TabBar? bottom;
+  const _SharedAppBar({required this.title, this.actions = const [], this.bottom});
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+      kToolbarHeight + (bottom != null ? kTextTabBarHeight : 0));
 
   @override
   Widget build(BuildContext context) {
@@ -696,6 +826,7 @@ class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: Colors.white,
       elevation: 0,
       titleSpacing: 0,
+      bottom: bottom,
       flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppGradients.heroBar)),
       title: Row(children: [
@@ -800,6 +931,35 @@ class _SharedDrawer extends StatelessWidget {
             color: AppColors.sage),
         const Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
 
+        // ── Pickup History ──────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          child: ListTile(
+            leading: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                  color: AppColors.amber.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.history_rounded,
+                  color: AppColors.amber, size: 18),
+            ),
+            title: Text('Pickup History',
+                style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.ink3),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            onTap: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const _PickupHistorySheet(),
+              );
+            },
+          ),
+        ),
+        const Divider(color: AppColors.fieldBorder, indent: 20, endIndent: 20),
+
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: SwitchListTile(
@@ -852,6 +1012,104 @@ class _SharedDrawer extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+// ─── NGO Pickup History Bottom Sheet ─────────────────────────────────────────
+class _PickupHistorySheet extends StatelessWidget {
+  const _PickupHistorySheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.82,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F1419) : AppColors.offWhite,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+            child: Column(children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.fieldBorder,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.amber.withAlpha(31),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(Icons.history_rounded, color: AppColors.amber, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Pickup History',
+                      style: AppTextStyles.cardHead.copyWith(fontSize: 17)),
+                  const Text('Food you have collected',
+                      style: AppTextStyles.bodySmall),
+                ]),
+              ]),
+              const SizedBox(height: 12),
+              const Divider(color: AppColors.fieldBorder),
+            ]),
+          ),
+          Expanded(
+            child: StreamBuilder<List<HistoryEntry>>(
+              stream: MealService().streamPickupHistory(),
+              builder: (ctx, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: AppColors.sage));
+                }
+                final entries = snap.data ?? [];
+                if (entries.isEmpty) {
+                  return Center(
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(
+                        width: 72, height: 72,
+                        decoration: BoxDecoration(
+                          color: AppColors.amber.withAlpha(26),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.inventory_2_outlined,
+                            size: 34, color: AppColors.amber),
+                      ),
+                      const SizedBox(height: 14),
+                      Text('No pickups yet', style: AppTextStyles.sectionHead),
+                      const SizedBox(height: 6),
+                      const Text('Confirmed pickups will appear here',
+                          style: AppTextStyles.bodyMuted),
+                    ]),
+                  );
+                }
+                return ListView.builder(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+                  itemCount: entries.length,
+                  itemBuilder: (_, i) => _HistoryCard(
+                    entry: entries[i],
+                    partnerLabel: 'Donated by',
+                    accentColor: AppColors.amber,
+                  ),
+                );
+              },
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -1075,6 +1333,163 @@ class _FoodImage extends StatelessWidget {
       );
 }
 
+// ─── Empty Tab State ─────────────────────────────────────────────────────────
+class _EmptyTabState extends StatelessWidget {
+  final String message;
+  const _EmptyTabState({required this.message});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            color: AppColors.amber.withAlpha(31),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.inbox_outlined, size: 38, color: AppColors.amber),
+        ),
+        const SizedBox(height: 16),
+        Text(message, style: AppTextStyles.sectionHead),
+      ]),
+    );
+  }
+}
+
+// ─── Claimed Food Card (NGO My Pickups tab) ──────────────────────────────────
+class _ClaimedFoodCard extends StatelessWidget {
+  final FoodPost post;
+  const _ClaimedFoodCard({required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    AppResponsive.init(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const borderColor = AppColors.amber;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: AppResponsive.h(16)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F26) : AppColors.white,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+        border: Border(left: BorderSide(color: borderColor, width: 3)),
+        boxShadow: [
+          BoxShadow(color: (isDark ? Colors.black : AppColors.ink).withAlpha(38),
+              blurRadius: 18, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Text(post.item,
+                style: AppTextStyles.sectionHead.copyWith(fontSize: 16))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: borderColor.withAlpha(31),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: borderColor.withAlpha(77)),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.directions_bike_outlined, size: 10, color: AppColors.amberDk),
+                SizedBox(width: 4),
+                Text('Claimed', style: TextStyle(
+                    fontSize: 10.5, color: AppColors.amberDk,
+                    fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            const Icon(Icons.business_outlined, size: 13, color: AppColors.ink3),
+            const SizedBox(width: 4),
+            Text('From: ${post.donor}', style: AppTextStyles.bodySmall),
+            const SizedBox(width: 12),
+            const Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
+            const SizedBox(width: 4),
+            Text(post.qty, style: AppTextStyles.bodySmall),
+          ]),
+          if (post.donorPhone.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF5B8DEF).withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF5B8DEF).withAlpha(56)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF5B8DEF)),
+                const SizedBox(width: 8),
+                Text('Contact Donor: ', style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                Text(post.donorPhone, style: AppTextStyles.bodySmall.copyWith(
+                    color: const Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ],
+          if (post.locationAddress != null && post.locationAddress!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: post.hasLocation
+                  ? () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => PickupMapScreen(
+                          lat: post.lat!, lng: post.lng!,
+                          address: post.locationAddress!,
+                          foodItem: post.item, donorName: post.donor,
+                        ),
+                      ))
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.sageBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.sage.withAlpha(51)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.location_on_rounded, size: 13, color: AppColors.sage),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(post.locationAddress!,
+                      style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.sage, fontWeight: FontWeight.w600, fontSize: 11.5),
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  if (post.hasLocation)
+                    const Icon(Icons.map_outlined, size: 13, color: AppColors.sage),
+                ]),
+              ),
+            ),
+          ],
+          // ── Status info banner ──
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.amber.withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.amber.withAlpha(56)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.directions_bike_outlined, size: 15, color: AppColors.amberDk),
+              SizedBox(width: 8),
+              Expanded(child: Text(
+                'Claimed! Head to the pickup location to collect',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.amberDk,
+                  fontWeight: FontWeight.w600,
+                ),
+              )),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+}
+
+
 void _snack(BuildContext context, String msg, Color color) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Text(msg),
@@ -1083,4 +1498,115 @@ void _snack(BuildContext context, String msg, Color color) {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     duration: const Duration(seconds: 2),
   ));
+}
+
+// ─── History Card (shared by donor & NGO history sheets) ──────────────────────
+class _HistoryCard extends StatelessWidget {
+  final HistoryEntry entry;
+  final String partnerLabel;
+  final Color accentColor;
+  const _HistoryCard({
+    required this.entry,
+    required this.partnerLabel,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final vegColor = entry.isVeg ? AppColors.sage : AppColors.terr;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F26) : AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: accentColor, width: 3)),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : AppColors.ink).withAlpha(30),
+            blurRadius: 12, offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(children: [
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 60, height: 60,
+              child: _imgPlaceholder(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(entry.item,
+                      style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700, fontSize: 14.5),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: accentColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: accentColor.withAlpha(56)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.check_circle_rounded, size: 10, color: accentColor),
+                    const SizedBox(width: 4),
+                    Text('Done', style: TextStyle(
+                        fontSize: 10, color: accentColor,
+                        fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.scale_outlined, size: 12, color: AppColors.ink3),
+                const SizedBox(width: 4),
+                Text(entry.qty, style: AppTextStyles.bodySmall),
+                const SizedBox(width: 10),
+                Container(width: 6, height: 6,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: vegColor)),
+                const SizedBox(width: 4),
+                Text(entry.isVeg ? 'Veg' : 'Non-Veg',
+                    style: TextStyle(fontSize: 11, color: vegColor, fontWeight: FontWeight.w600)),
+              ]),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.handshake_outlined, size: 12, color: AppColors.ink3),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text('$partnerLabel: ${entry.partnerName}',
+                      style: AppTextStyles.bodySmall.copyWith(fontSize: 11.5),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ]),
+              const SizedBox(height: 3),
+              Row(children: [
+                const Icon(Icons.access_time_rounded, size: 12, color: AppColors.ink3),
+                const SizedBox(width: 4),
+                Text(
+                  DateFormat('dd MMM yyyy, hh:mm a').format(entry.completedAt),
+                  style: AppTextStyles.bodySmall.copyWith(fontSize: 10.5),
+                ),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _imgPlaceholder() => Container(
+    color: AppColors.sageBg,
+    child: const Center(
+        child: Icon(Icons.fastfood_outlined, size: 28, color: AppColors.sage)),
+  );
 }
