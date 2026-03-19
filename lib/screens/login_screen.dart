@@ -361,12 +361,7 @@ class _LoginScreenState extends State<LoginScreen>
                           _obscure ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                           size: AppDimensions.iconSm,
-<<<<<<< HEAD
                           color: AppColors.ink.withAlpha(71),
-=======
-                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.4) ??
-                              AppColors.ink.withOpacity(0.28),
->>>>>>> d5c9e7fd35e3978657d996f76a01cf48644988df
                         ),
                       ),
                       val: (v) => v == null || v.isEmpty ? 'Required'
