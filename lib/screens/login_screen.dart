@@ -104,11 +104,13 @@ class _LoginScreenState extends State<LoginScreen>
           _addr.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('All fields need to be filled in'),
+            content: Text('Please fill the required fields'),
             backgroundColor: AppColors.terr,
             behavior: SnackBarBehavior.floating,
           ),
         );
+        // Trigger form validation to show inline field errors
+        _formKey.currentState?.validate();
         return;
       }
     }
@@ -205,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     AppResponsive.init(context);
     return Scaffold(
-      backgroundColor: AppColors.offWhite,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Container(
         decoration: const BoxDecoration(gradient: AppGradients.pageSplit),
         child: SafeArea(
@@ -273,8 +275,24 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildCard() {
+    final theme = Theme.of(context);
     return Container(
-      decoration: AppDecorations.card,
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusXl),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.10),
+            blurRadius: 48,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppDimensions.radiusXl),
         child: Stack(children: [
@@ -338,11 +356,12 @@ class _LoginScreenState extends State<LoginScreen>
                           _obscure ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                           size: AppDimensions.iconSm,
-                          color: AppColors.ink.withOpacity(0.28),
+                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.4) ??
+                              AppColors.ink.withOpacity(0.28),
                         ),
                       ),
-                      val: (v) => v == null || v.isEmpty || v.length < 4
-                          ? 'Min 4 characters' : null),
+                      val: (v) => v == null || v.isEmpty ? 'Required'
+                          : v.length < 8 ? 'Minimum 8 characters required' : null),
                   if (!_isLogin) ...[
                     const SizedBox(height: 12),
                     _lf(label: 'PHONE NUMBER', ctrl: _phone,
