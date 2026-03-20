@@ -23,7 +23,7 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // No user → always show login with light theme, no exceptions
+        // No user → always show login with light theme, no dark mode ever
         if (snapshot.data == null) {
           return Theme(
             data: AppTheme.light,
@@ -31,7 +31,7 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // User logged in → fetch profile and route
+        // User logged in → fetch profile and route to dashboard
         return FutureBuilder<Map<String, dynamic>?>(
           future: AuthService().getUserProfile(),
           builder: (context, profileSnapshot) {
@@ -43,7 +43,11 @@ class AuthWrapper extends StatelessWidget {
             }
 
             if (profileSnapshot.data == null) {
-              return const LoginScreen();
+              // Profile fetch failed — return to login (always light)
+              return Theme(
+                data: AppTheme.light,
+                child: const LoginScreen(),
+              );
             }
 
             final data = profileSnapshot.data!;
@@ -55,6 +59,7 @@ class AuthWrapper extends StatelessWidget {
               }
             });
 
+            // Dashboards: theme is controlled by appState.isDarkMode via main.dart
             return data['role'] == 'Donor'
                 ? const DonorDashboard()
                 : const NGODashboard();

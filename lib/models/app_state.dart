@@ -6,12 +6,14 @@ class UserProfile {
   final String orgName;
   final String address;
   final String role;
+  final String phone;
 
   const UserProfile({
     required this.email,
     required this.orgName,
     required this.address,
     required this.role,
+    this.phone = '',
   });
 
   factory UserProfile.fromMap(Map<String, dynamic> data) => UserProfile(
@@ -19,17 +21,16 @@ class UserProfile {
         orgName: data['orgName'] as String? ?? '',
         address: data['address'] as String? ?? '',
         role:    data['role']    as String? ?? 'Donor',
+        phone:   data['phone']   as String? ?? '',
       );
 }
 
 class AppState with ChangeNotifier {
   UserProfile? _currentUser;
-  bool _isDarkMode = false;
 
   final _authService = AuthService();
 
   UserProfile? get currentUser => _currentUser;
-  bool get isDarkMode => _isDarkMode;
 
   void setUser(UserProfile user) {
     _currentUser = user;
@@ -41,6 +42,10 @@ class AppState with ChangeNotifier {
     notifyListeners();
   }
 
+  bool _isDarkMode = false;
+
+  bool get isDarkMode => _isDarkMode;
+
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
     notifyListeners();
@@ -49,6 +54,7 @@ class AppState with ChangeNotifier {
   Future<void> logout() async {
     await _authService.signOut();
     _currentUser = null;
+    _isDarkMode = false;  // Reset to light mode on logout
     notifyListeners();
   }
 }

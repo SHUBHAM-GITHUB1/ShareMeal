@@ -161,11 +161,10 @@ class _LoginScreenState extends State<LoginScreen>
         await _authService.signUp(
           email:    _email.text.trim(),
           password: _password.text,
-          orgName:  _org.text.trim().isEmpty
-                        ? 'Organization'
-                        : _org.text.trim(),
+          orgName:  _org.text.trim().isEmpty ? 'Organization' : _org.text.trim(),
           address:  _addr.text.trim(),
-          role:     _role,             // 'Donor' or 'NGO' from toggle
+          role:     _role,
+          phone:    _phone.text.trim(),
         );
 
         if (!mounted) return;
@@ -209,35 +208,37 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     AppResponsive.init(context);
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppGradients.pageSplit),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // ── Hero bar ─────────────────────────────────────────────
-                FadeTransition(
-                  opacity: _heroFade,
-                  child: SlideTransition(
-                    position: _heroSlide,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(AppDimensions.radiusHero)),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: const BoxDecoration(gradient: AppGradients.heroBar),
-                        child: Stack(children: [
-                          Positioned.fill(child: CustomPaint(painter: _HeroDotPainter())),
-                          Positioned(
-                            top: -60, right: -60,
-                            child: Container(
-                              width: 220, height: 220,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [AppColors.amber.withAlpha(71),
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Container(
+          decoration: const BoxDecoration(gradient: AppGradients.pageSplit),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ── Hero bar ─────────────────────────────────────────────
+                  FadeTransition(
+                    opacity: _heroFade,
+                    child: SlideTransition(
+                      position: _heroSlide,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(AppDimensions.radiusHero)),
+                        child: Container(
+                          width: double.infinity,
+                          decoration: const BoxDecoration(gradient: AppGradients.heroBar),
+                          child: Stack(children: [
+                            Positioned.fill(child: CustomPaint(painter: _HeroDotPainter())),
+                            Positioned(
+                              top: -60, right: -60,
+                              child: Container(
+                                width: 220, height: 220,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [AppColors.amber.withAlpha(71),
                                     Colors.transparent],
                                   stops: const [0, .65],
                                 ),
@@ -274,6 +275,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
+    ),
     );
   }
 

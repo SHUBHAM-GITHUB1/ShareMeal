@@ -11,8 +11,10 @@ class FoodPost {
   final bool imgIsBase64;
   final DateTime time;
   final String donor;
+  final String donorPhone;
   final bool isVeg;
   final String status;
+  final String donorPhone;
   final NutrientInfo? nutrients;
   final bool needsNutrientRefetch;
   final double? lat;
@@ -27,8 +29,10 @@ class FoodPost {
     required this.time,
     this.imgIsBase64 = false,
     required this.donor,
+    this.donorPhone = '',
     this.isVeg    = true,
     this.status   = 'available',
+    this.donorPhone = '',
     this.nutrients,
     this.needsNutrientRefetch = false,
     this.lat,
@@ -71,6 +75,7 @@ class FoodPost {
       img:         finalImg,
       imgIsBase64: isBase64,
       donor:       d['donorName']      as String? ?? '',
+      donorPhone:  d['donorPhone']     as String? ?? '',
       isVeg:       d['isVeg']          as bool?   ?? true,
       status:      d['status']         as String? ?? 'available',
       time:        (d['postedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -93,7 +98,7 @@ class FoodPost {
     }
     return FoodPost(
       id: id, item: item, qty: qty, img: img, imgIsBase64: imgIsBase64,
-      time: time, donor: donor, isVeg: isVeg, status: status,
+      time: time, donor: donor, donorPhone: donorPhone, isVeg: isVeg, status: status,
       nutrients: fresh, needsNutrientRefetch: false,
       lat: lat, lng: lng, locationAddress: locationAddress,
     );
