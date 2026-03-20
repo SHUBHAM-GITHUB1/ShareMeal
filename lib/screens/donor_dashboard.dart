@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:sharemeal/models/food_post.dart';
-import 'package:sharemeal/models/history_entry.dart';
 import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/auth_wrapper.dart';

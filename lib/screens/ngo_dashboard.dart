@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/models/food_post.dart';
-import 'package:sharemeal/models/history_entry.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/screens/login_screen.dart';
 import 'package:sharemeal/constants/app_responsive.dart';
