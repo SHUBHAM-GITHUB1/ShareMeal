@@ -30,7 +30,7 @@ ShareMeal is a comprehensive food donation platform that enables:
 ### 📍 Location Services
 - **Automatic Location Detection** for NGOs
 - **Interactive Map Picker** for donors
-- **Reverse Geocoding** for address display
+- **Reverse Geocoding** using OpenStreetMap Nominatim for address display (free, no Google API key required)
 - **Distance Calculation** using Haversine formula
 - **Pickup Location Visualization**
 
@@ -63,9 +63,8 @@ ShareMeal is a comprehensive food donation platform that enables:
 - **Calorie Ninja API** - Primary nutrition data
 - **Open Food Facts API** - Secondary nutrition source
 - **Unsplash API** - Dynamic food imagery
-- **OpenStreetMap** - Map tiles and geocoding
+- **OpenStreetMap** - Map tiles and reverse geocoding (Nominatim)
 - **Geolocator** - Device location services
-- **Geocoding** - Address resolution
 
 ### Key Packages
 ```yaml
@@ -73,7 +72,7 @@ dependencies:
   flutter_map: ^7.0.2          # Interactive maps
   latlong2: ^0.9.1             # Geographic coordinates
   geolocator: ^13.0.2          # Location services
-  geocoding: ^3.0.0            # Address geocoding
+  http: ^1.6.0                 # Reverse geocoding via OpenStreetMap Nominatim
   firebase_core: ^3.15.2       # Firebase SDK
   firebase_auth: ^5.7.0        # Authentication
   cloud_firestore: ^5.6.12     # Database
