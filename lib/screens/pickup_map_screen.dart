@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:sharemeal/constants/app_theme.dart';
 
 class PickupMapScreen extends StatefulWidget {
@@ -69,17 +70,21 @@ class _PickupMapScreenState extends State<PickupMapScreen>
 
   Future<void> _geocodePickup() async {
     try {
-      final marks = await placemarkFromCoordinates(widget.lat, widget.lng);
-      if (marks.isNotEmpty && mounted) {
-        final p = marks.first;
-        setState(() {
-          _street  = _c(p.street);
-          _area    = _c(p.subLocality).isNotEmpty ? _c(p.subLocality) : _c(p.locality);
-          _city    = _c(p.locality).isNotEmpty ? _c(p.locality) : _c(p.subAdministrativeArea);
-          _pincode = _c(p.postalCode);
-          _state   = _c(p.administrativeArea);
-          _country = _c(p.country);
-        });
+      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=${widget.lat}&lon=${widget.lng}&addressdetails=1');
+      final response = await http.get(url, headers: {'User-Agent': 'ShareMeal/1.0'});
+      if (response.statusCode == 200 && mounted) {
+        final data = json.decode(response.body);
+        if (data['address'] != null) {
+          final addr = data['address'];
+          setState(() {
+            _street  = _c(addr['house_number'] ?? '') + ' ' + _c(addr['road'] ?? '');
+            _area    = _c(addr['suburb'] ?? addr['neighbourhood'] ?? '');
+            _city    = _c(addr['city'] ?? addr['town'] ?? addr['village'] ?? '');
+            _pincode = _c(addr['postcode'] ?? '');
+            _state   = _c(addr['state'] ?? '');
+            _country = _c(addr['country'] ?? '');
+          });
+        }
       }
     } catch (_) {}
   }
@@ -392,8 +397,14 @@ class _PickupMapScreenState extends State<PickupMapScreen>
                   ] else
                     Text(widget.address, style: AppTextStyles.body.copyWith(fontSize: 13, color: textColor)),
                   const SizedBox(height: 6),
-                  Text('${widget.lat.toStringAsFixed(5)}, ${widget.lng.toStringAsFixed(5)}',
-                      style: AppTextStyles.bodySmall.copyWith(fontSize: 10, color: mutedColor)),
+                  Text(
+                    widget.address.isNotEmpty
+                        ? widget.address
+                        : '${widget.lat.toStringAsFixed(5)}, ${widget.lng.toStringAsFixed(5)}',
+                    style: AppTextStyles.bodySmall.copyWith(fontSize: 10, color: mutedColor),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ]),
               ),
 
