@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:sharemeal/constants/app_theme.dart';
 
 class PickedLocation {
@@ -37,7 +38,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   bool _loading  = false;
   bool _locating = false;
   bool _searched = false;
-  List<Location> _searchResults = [];
+  List<Map<String, dynamic>> _searchResults = [];
 
   @override
   void initState() {
@@ -59,31 +60,39 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   Future<void> _reverseGeocode(LatLng pos) async {
     setState(() => _loading = true);
     try {
-      final marks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-      if (marks.isNotEmpty) {
-        final p = marks.first;
-        _street  = _clean(p.street);
-        _area    = _clean(p.subLocality).isNotEmpty ? _clean(p.subLocality) : _clean(p.locality);
-        _city    = _clean(p.locality).isNotEmpty ? _clean(p.locality) : _clean(p.subAdministrativeArea);
-        _pincode = _clean(p.postalCode);
-        _state   = _clean(p.administrativeArea);
-        _country = _clean(p.country);
+      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.latitude}&lon=${pos.longitude}&addressdetails=1');
+      final response = await http.get(url, headers: {'User-Agent': 'ShareMeal/1.0'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['address'] != null) {
+          final addr = data['address'];
+          _street  = _clean(addr['house_number'] ?? '') + ' ' + _clean(addr['road'] ?? '');
+          _area    = _clean(addr['suburb'] ?? addr['neighbourhood'] ?? '');
+          _city    = _clean(addr['city'] ?? addr['town'] ?? addr['village'] ?? '');
+          _pincode = _clean(addr['postcode'] ?? '');
+          _state   = _clean(addr['state'] ?? '');
+          _country = _clean(addr['country'] ?? '');
 
-        final parts = <String>[
-          if (_street.isNotEmpty) _street,
-          if (_area.isNotEmpty && _area != _city) _area,
-          if (_city.isNotEmpty) _city,
-          if (_pincode.isNotEmpty) _pincode,
-          if (_state.isNotEmpty) _state,
-          if (_country.isNotEmpty) _country,
-        ];
-        _fullAddress = parts.isNotEmpty
-            ? parts.join(', ')
-            : '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+          final parts = <String>[
+            if (_street.trim().isNotEmpty) _street.trim(),
+            if (_area.isNotEmpty && _area != _city) _area,
+            if (_city.isNotEmpty) _city,
+            if (_pincode.isNotEmpty) _pincode,
+            if (_state.isNotEmpty) _state,
+            if (_country.isNotEmpty) _country,
+          ];
+          _fullAddress = parts.isNotEmpty
+              ? parts.join(', ')
+              : '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+        } else {
+          _fullAddress = '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+        }
+      } else {
+        _fullAddress = 'Address resolution failed - coordinates: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
       }
     } catch (_) {
       _street = _area = _city = _pincode = _state = _country = '';
-      _fullAddress = '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+      _fullAddress = 'Address resolution failed - coordinates: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -95,15 +104,23 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     if (query.trim().isEmpty) return;
     setState(() { _searched = true; _searchResults = []; });
     try {
-      final results = await locationFromAddress(query);
-      setState(() => _searchResults = results.take(5).toList());
+      final url = Uri.parse('https://nominatim.openstreetmap.org/search?format=json&q=${Uri.encodeComponent(query)}&limit=5');
+      final response = await http.get(url, headers: {'User-Agent': 'ShareMeal/1.0'});
+      if (response.statusCode == 200) {
+        final results = json.decode(response.body) as List;
+        setState(() => _searchResults = results.cast<Map<String, dynamic>>());
+      } else {
+        setState(() => _searchResults = []);
+      }
     } catch (_) {
       setState(() => _searchResults = []);
     }
   }
 
-  void _selectSearchResult(Location loc) {
-    final ll = LatLng(loc.latitude, loc.longitude);
+  void _selectSearchResult(Map<String, dynamic> result) {
+    final lat = double.parse(result['lat']);
+    final lon = double.parse(result['lon']);
+    final ll = LatLng(lat, lon);
     _mapCtrl.move(ll, 15);
     setState(() { _picked = ll; _searchResults = []; _searched = false; });
     _searchCtrl.clear();
@@ -295,7 +312,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                               const Icon(Icons.location_on_outlined, size: 16, color: AppColors.sage),
                               const SizedBox(width: 10),
                               Expanded(child: Text(
-                                '${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}',
+                                loc['display_name'] ?? '${loc['lat']}, ${loc['lon']}',
                                 style: TextStyle(fontSize: 12.5, color: textColor),
                               )),
                             ]),
@@ -334,6 +351,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 _AddressCard(
                   street: _street, area: _area, city: _city,
                   pincode: _pincode, state: _state, country: _country,
+                  fullAddress: _fullAddress,
                   lat: _picked.latitude, lng: _picked.longitude,
                   cardBg: ThemeHelper.sageBg(context),
                   textColor: textColor, mutedColor: mutedColor,
@@ -379,12 +397,13 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
 // ── Structured address card ───────────────────────────────────────────────────
 class _AddressCard extends StatelessWidget {
-  final String street, area, city, pincode, state, country;
+  final String street, area, city, pincode, state, country, fullAddress;
   final double lat, lng;
   final Color cardBg, textColor, mutedColor;
   const _AddressCard({
     required this.street, required this.area, required this.city,
     required this.pincode, required this.state, required this.country,
+    required this.fullAddress,
     required this.lat, required this.lng,
     required this.cardBg, required this.textColor, required this.mutedColor,
   });
@@ -422,8 +441,10 @@ class _AddressCard extends StatelessWidget {
             if (country.isNotEmpty) _Row(Icons.flag_outlined, country, mutedColor, textColor),
           ],
           const SizedBox(height: 4),
-          Text('${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
-              style: AppTextStyles.bodySmall.copyWith(fontSize: 10, color: mutedColor)),
+          Text(fullAddress,
+              style: AppTextStyles.bodySmall.copyWith(fontSize: 10, color: mutedColor),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
         ])),
       ]),
     );

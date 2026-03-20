@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:sharemeal/models/food_post.dart';
 import 'package:sharemeal/constants/app_theme.dart';
@@ -135,8 +136,20 @@ class FoodCard extends StatelessWidget {
                 ] else ...[
                   Icon(Icons.location_on_outlined, size: 13, color: mutedColor),
                   const SizedBox(width: 3),
-                  Text('2.0 km',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: mutedColor)),
+                  Expanded(
+                    child: FutureBuilder<String>(
+                      future: _resolveFormattedAddress(),
+                      builder: (context, snap) {
+                        final text = snap.connectionState == ConnectionState.done
+                            ? (snap.data ?? 'Location not available')
+                            : 'Resolving location...';
+                        return Text(text,
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: mutedColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis);
+                      },
+                    ),
+                  ),
                 ],
               ]),
 
@@ -194,6 +207,66 @@ class FoodCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<String> _resolveFormattedAddress() async {
+    final rawLocation = post.locationAddress?.trim();
+    final coordsReg = RegExp(r'^\s*-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?\s*$');
+    final hasCoordsText = rawLocation != null && rawLocation.isNotEmpty && coordsReg.hasMatch(rawLocation);
+    final hasFailedAddress = rawLocation != null && rawLocation.startsWith('Address resolution failed - coordinates:');
+
+    if (rawLocation != null && rawLocation.isNotEmpty && !hasCoordsText && !hasFailedAddress) {
+      return rawLocation;
+    }
+
+    // Handle failed address by extracting coordinates
+    double? lat = post.lat;
+    double? lng = post.lng;
+    if (hasFailedAddress && rawLocation != null) {
+      final coordMatch = RegExp(r'coordinates:\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)').firstMatch(rawLocation);
+      if (coordMatch != null) {
+        lat = double.tryParse(coordMatch.group(1)!);
+        lng = double.tryParse(coordMatch.group(2)!);
+      }
+    }
+
+    // If locationAddress is coords and we don't have lat/lng, parse coords from it
+    if ((lat == null || lng == null) && hasCoordsText && rawLocation != null) {
+      final coordParts = rawLocation.split(',').map((s) => s.trim()).toList();
+      if (coordParts.length == 2) {
+        lat = double.tryParse(coordParts[0]);
+        lng = double.tryParse(coordParts[1]);
+      }
+    }
+
+    if (lat != null && lng != null) {
+      try {
+        final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&addressdetails=1');
+        final response = await http.get(url, headers: {'User-Agent': 'ShareMeal/1.0'});
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['address'] != null) {
+            final addr = data['address'];
+            final parts = <String?>[
+              addr['house_number'] != null && addr['road'] != null ? '${addr['house_number']} ${addr['road']}' : addr['road'],
+              addr['suburb'] ?? addr['neighbourhood'],
+              addr['city'] ?? addr['town'] ?? addr['village'],
+              addr['state'],
+              addr['postcode'],
+              addr['country']
+            ].where((part) => part != null && part.trim().isNotEmpty).map((part) => part!.trim()).toList();
+            if (parts.isNotEmpty) {
+              return parts.join(', ');
+            }
+          }
+        }
+      } catch (_) {
+        // ignore and fallback below
+      }
+      return '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+    }
+
+    return rawLocation?.isNotEmpty == true ? rawLocation! : 'Location not available';
   }
 
   Widget _imgPlaceholder() => Container(
