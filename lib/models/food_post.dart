@@ -40,7 +40,6 @@ class FoodPost {
 
   bool get hasLocation => lat != null && lng != null;
 
-  // Converts a Firestore document into a FoodPost object
   factory FoodPost.fromFirestore(DocumentSnapshot doc) {
     final d    = doc.data() as Map<String, dynamic>;
     final item = d['item'] as String? ?? '';
@@ -59,13 +58,12 @@ class FoodPost {
 
     final rawImg   = d['img']         as String? ?? '';
     final isBase64 = d['imgIsBase64'] as bool?   ?? false;
-    
+
     String finalImg = rawImg;
     if (rawImg.isEmpty || (!isBase64 && rawImg.startsWith('https://loremflickr.com'))) {
-      // If no image or using old LoremFlickr URL, we'll use fallback
       finalImg = ImageService.getFallbackImageUrl(item);
     }
-    
+
     return FoodPost(
       id:          doc.id,
       item:        item,
@@ -85,7 +83,6 @@ class FoodPost {
     );
   }
 
-  /// Fetches live nutrients from API and patches the Firestore doc.
   Future<FoodPost> withFreshNutrients() async {
     final fresh = await NutritionService().getNutrients(item);
     if (fresh.source == 'api') {

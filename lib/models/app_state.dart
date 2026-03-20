@@ -27,12 +27,10 @@ class UserProfile {
 
 class AppState with ChangeNotifier {
   UserProfile? _currentUser;
-  bool _isDarkMode = false;
 
   final _authService = AuthService();
 
   UserProfile? get currentUser => _currentUser;
-  bool get isDarkMode => _isDarkMode;
 
   void setUser(UserProfile user) {
     _currentUser = user;
@@ -44,6 +42,10 @@ class AppState with ChangeNotifier {
     notifyListeners();
   }
 
+  bool _isDarkMode = false;
+
+  bool get isDarkMode => _isDarkMode;
+
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
     notifyListeners();
@@ -52,6 +54,7 @@ class AppState with ChangeNotifier {
   Future<void> logout() async {
     await _authService.signOut();
     _currentUser = null;
+    _isDarkMode = false;  // Reset to light mode on logout
     notifyListeners();
   }
 }

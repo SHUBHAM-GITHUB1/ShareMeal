@@ -38,9 +38,8 @@ class ShareMealApp extends StatelessWidget {
     return MaterialApp(
       title:                      'ShareMeal',
       debugShowCheckedModeBanner: false,
-      theme:                      AppTheme.light,
-      darkTheme:                  AppTheme.dark,
-      // Login screen always uses light theme, dashboards respect theme setting
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: appState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const AuthWrapper(),   // 👈 AuthWrapper handles routing
     );
