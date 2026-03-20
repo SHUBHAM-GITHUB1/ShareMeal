@@ -12,6 +12,8 @@ import 'package:sharemeal/screens/map_picker_screen.dart';
 import 'package:sharemeal/services/meal_service.dart';
 import 'package:sharemeal/services/image_service.dart';
 import 'package:sharemeal/services/ai_food_service.dart';
+import 'package:sharemeal/services/widgets/expiry_timer_widget.dart';
+import 'package:sharemeal/services/expiry_service.dart';
 
 
 class DonorDashboard extends StatefulWidget {
@@ -30,12 +32,14 @@ class _DonorDashboardState extends State<DonorDashboard>
   bool _isPosting    = false;
   String? _pickedImageB64;
   PickedLocation? _pickedLocation;
+  DateTime? _selectedExpiryTime;
   late final TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _selectedExpiryTime = null;
   }
 
   @override
@@ -126,6 +130,7 @@ class _DonorDashboardState extends State<DonorDashboard>
       _isPosting = false;
       _pickedImageB64 = null;
       _pickedLocation = null;
+      _selectedExpiryTime = null;
     });
     showModalBottomSheet(
       context: context,
@@ -323,6 +328,15 @@ class _DonorDashboardState extends State<DonorDashboard>
                   ),
                   const SizedBox(height: 16),
 
+                  // ⏰ Expiry Time Selection
+                  ExpirySelector(
+                    selectedExpiry: _selectedExpiryTime,
+                    onExpirySelected: (expiryTime) {
+                      setModal(() => _selectedExpiryTime = expiryTime);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
                   // Veg toggle
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -375,11 +389,16 @@ class _DonorDashboardState extends State<DonorDashboard>
                                 lat: _pickedLocation?.latLng.latitude,
                                 lng: _pickedLocation?.latLng.longitude,
                                 locationAddress: _pickedLocation?.address,
+                                expiryTime: _selectedExpiryTime,
                               );
                               if (!context.mounted) return;
                               Navigator.pop(sheetCtx);
                               _itemCtrl.clear(); _qtyCtrl.clear();
-                              setState(() { _pickedImageB64 = null; _pickedLocation = null; });
+                              setState(() { 
+                                _pickedImageB64 = null; 
+                                _pickedLocation = null;
+                                _selectedExpiryTime = null;
+                              });
                               _snack(context, '✅ Food posted successfully!', AppColors.sage);
                             } catch (e) {
                               if (!context.mounted) return;
@@ -540,6 +559,29 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                 ),
               ],
             ]),
+            // ⏰ Show expired warning badge
+            if (_post.isExpired) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE07856).withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.warning_rounded, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'EXPIRED',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ]),
+              ),
+            ],
             const SizedBox(height: 6),
             Row(children: [
               const Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
@@ -555,6 +597,14 @@ class _DonorPostCardState extends State<_DonorPostCard> {
               Text(_post.isVeg ? 'Veg' : 'Non-Veg',
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: accent)),
             ]),
+            // ⏰ Display expiry time if set
+            if (_post.expiryTime != null) ...[
+              const SizedBox(height: 8),
+              ExpiryBadge(
+                expiryTime: _post.expiryTime,
+                textStyle: const TextStyle(fontSize: 11),
+              ),
+            ],
             if (_post.nutrients != null) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [

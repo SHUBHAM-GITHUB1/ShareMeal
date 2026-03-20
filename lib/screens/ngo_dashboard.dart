@@ -12,6 +12,7 @@ import 'package:sharemeal/services/meal_service.dart';
 import 'package:sharemeal/services/notification_service.dart';
 import 'package:sharemeal/services/local_notification_service.dart';
 import 'package:sharemeal/screens/pickup_map_screen.dart';
+import 'package:sharemeal/services/widgets/expiry_timer_widget.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});
@@ -273,6 +274,38 @@ class _FoodCard extends StatelessWidget {
                   style: AppTextStyles.bodySmall.copyWith(color: mutedColor)),
             ]),
 
+            // ⏰ Expiry time display
+            if (post.expiryTime != null) ...[
+              const SizedBox(height: 8),
+              ExpiryTimestamp(
+                expiryTime: post.expiryTime,
+                showStatus: true,
+              ),
+            ],
+
+            // Show warning if expiring soon or expired
+            if (post.expiryTime != null && post.isExpiringSoon) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B35).withOpacity(0.1),
+                  border: Border.all(color: const Color(0xFFFF6B35).withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.warning_rounded, size: 14, color: Color(0xFFFF6B35)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Expires soon! Only ${post.remainingTimeFormatted} left',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFFFF6B35)),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+
             // Location chip
             if (post.locationAddress != null && post.locationAddress!.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -398,6 +431,44 @@ class _FoodCard extends StatelessWidget {
                       style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600, color: textColor)),
                   Text(post.donorPhone, style: AppTextStyles.bodySmall.copyWith(
                       color: const Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ],
+
+            // ⏰ Expiry information
+            if (post.expiryTime != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: post.isExpired 
+                    ? const Color(0xFFE07856).withAlpha(20)
+                    : const Color(0xFF6B9080).withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: post.isExpired 
+                      ? const Color(0xFFE07856).withAlpha(56)
+                      : const Color(0xFF6B9080).withAlpha(56),
+                  ),
+                ),
+                child: Row(children: [
+                  Icon(
+                    post.isExpired ? Icons.error_outline : Icons.schedule_rounded,
+                    size: 15,
+                    color: post.isExpired ? const Color(0xFFE07856) : const Color(0xFF6B9080),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('expires: ',
+                      style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600, color: textColor)),
+                  Expanded(
+                    child: Text(
+                      post.isExpired ? 'EXPIRED' : post.remainingTimeFormatted,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: post.isExpired ? const Color(0xFFE07856) : const Color(0xFF6B9080),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ]),
               ),
             ],

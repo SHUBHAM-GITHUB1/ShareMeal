@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sharemeal/models/nutrient_data.dart';
 import 'package:sharemeal/services/image_service.dart';
 import 'package:sharemeal/services/nutrition_service.dart';
+import 'package:sharemeal/services/expiry_service.dart';
 
 class FoodPost {
   final String id;
@@ -19,6 +20,7 @@ class FoodPost {
   final double? lat;
   final double? lng;
   final String? locationAddress;
+  final DateTime? expiryTime;  // ⏰ NEW: When food expires
 
   const FoodPost({
     required this.id,
@@ -36,9 +38,31 @@ class FoodPost {
     this.lat,
     this.lng,
     this.locationAddress,
+    this.expiryTime,
   });
 
   bool get hasLocation => lat != null && lng != null;
+  
+  /// Check if food is expired
+  bool get isExpired => expiryTime != null && ExpiryService.isExpired(expiryTime!);
+  
+  /// Check if food is expiring soon (within 30 minutes)
+  bool get isExpiringSoon => expiryTime != null && ExpiryService.isExpiringSoon(expiryTime!);
+  
+  /// Get remaining time as formatted string (e.g., "2h 30min")
+  String get remainingTimeFormatted => expiryTime != null 
+    ? ExpiryService.formatRemainingTime(expiryTime!) 
+    : 'No expiry set';
+  
+  /// Get expiry status
+  ExpiryStatus get expiryStatus => expiryTime != null 
+    ? ExpiryService.getExpiryStatus(expiryTime!) 
+    : ExpiryStatus(
+        label: 'No expiry set',
+        color: 0xFF999999,
+        isExpired: false,
+        minutesRemaining: -1,
+      );
 
   factory FoodPost.fromFirestore(DocumentSnapshot doc) {
     final d    = doc.data() as Map<String, dynamic>;
@@ -80,6 +104,7 @@ class FoodPost {
       lat:             (d['lat']  as num?)?.toDouble(),
       lng:             (d['lng']  as num?)?.toDouble(),
       locationAddress: d['locationAddress'] as String?,
+      expiryTime:      (d['expiryTime'] as Timestamp?)?.toDate(),  // ⏰ NEW
     );
   }
 
@@ -96,6 +121,7 @@ class FoodPost {
       time: time, donor: donor, donorPhone: donorPhone, isVeg: isVeg, status: status,
       nutrients: fresh, needsNutrientRefetch: false,
       lat: lat, lng: lng, locationAddress: locationAddress,
+      expiryTime: expiryTime,  // ⏰ NEW: Preserve expiry time
     );
   }
 }

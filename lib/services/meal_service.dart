@@ -156,6 +156,7 @@ class MealService {
     double? lat,
     double? lng,
     String? locationAddress,
+    DateTime? expiryTime,  // ⏰ NEW: Food expiry time
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) throw Exception('Not authenticated');
@@ -183,6 +184,7 @@ class MealService {
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
       if (locationAddress != null) 'locationAddress': locationAddress,
+      if (expiryTime != null) 'expiryTime': Timestamp.fromDate(expiryTime),  // ⏰ NEW
     });
 
     if (lat != null && lng != null) {
@@ -194,6 +196,7 @@ class MealService {
         donorLat:        lat,
         donorLng:        lng,
         locationAddress: locationAddress,
+        expiryTime:      expiryTime,  // ⏰ NEW: Pass expiry to notification
       );
     }
   }

@@ -37,6 +37,7 @@ class NotificationService {
     required double donorLat,
     required double donorLng,
     String? locationAddress,
+    DateTime? expiryTime,  // ⏰ NEW: Food expiry time
   }) async {
     // Fetch all NGO profiles that have a stored location
     final snap = await _db
@@ -69,6 +70,7 @@ class NotificationService {
         'donorLng':        donorLng,
         'read':            false,
         'createdAt':       FieldValue.serverTimestamp(),
+        if (expiryTime != null) 'expiryTime': Timestamp.fromDate(expiryTime),  // ⏰ NEW
       });
       count++;
     }
@@ -116,6 +118,7 @@ class MealNotification {
   final double? donorLng;
   final bool read;
   final DateTime time;
+  final DateTime? expiryTime;  // ⏰ NEW: Food expiry time
 
   const MealNotification({
     required this.id,
@@ -129,6 +132,7 @@ class MealNotification {
     this.donorLng,
     required this.read,
     required this.time,
+    this.expiryTime,
   });
 
   factory MealNotification.fromDoc(DocumentSnapshot doc) {
@@ -145,6 +149,7 @@ class MealNotification {
       donorLng:        (d['donorLng']   as num?)?.toDouble(),
       read:            d['read']             as bool?   ?? false,
       time:            (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      expiryTime:      (d['expiryTime'] as Timestamp?)?.toDate(),  // ⏰ NEW
     );
   }
 }
