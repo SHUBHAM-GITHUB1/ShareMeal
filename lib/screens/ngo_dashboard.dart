@@ -25,7 +25,7 @@ class _NGODashboardState extends State<NGODashboard>
   final _notifService = NotificationService();
   final Set<String> _seenIds = {};
   late final TabController _tabCtrl;
-  Position? _myPosition; // live NGO position for distance calc
+  Position? _myPosition;
 
   @override
   void initState() {
@@ -249,7 +249,9 @@ class _FoodCard extends StatelessWidget {
             // Title + qty badge
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Expanded(child: Text(post.item,
-                  style: AppTextStyles.sectionHead.copyWith(fontSize: 18, color: textColor))),
+                  style: AppTextStyles.sectionHead.copyWith(fontSize: 18, color: textColor),
+                  overflow: TextOverflow.ellipsis, maxLines: 1)),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
@@ -267,7 +269,8 @@ class _FoodCard extends StatelessWidget {
             Row(children: [
               Icon(Icons.business_outlined, size: 13, color: mutedColor),
               const SizedBox(width: 4),
-              Expanded(child: Text(post.donor, style: AppTextStyles.bodySmall.copyWith(color: mutedColor))),
+              Expanded(child: Text(post.donor, style: AppTextStyles.bodySmall.copyWith(color: mutedColor),
+                  overflow: TextOverflow.ellipsis)),
               Icon(Icons.access_time_rounded, size: 13, color: mutedColor),
               const SizedBox(width: 4),
               Text(DateFormat('hh:mm a').format(post.time),
@@ -277,10 +280,7 @@ class _FoodCard extends StatelessWidget {
             // ⏰ Expiry time display
             if (post.expiryTime != null) ...[
               const SizedBox(height: 8),
-              ExpiryTimestamp(
-                expiryTime: post.expiryTime,
-                showStatus: true,
-              ),
+              ExpiryTimestamp(expiryTime: post.expiryTime, showStatus: true),
             ],
 
             // Show warning if expiring soon or expired
@@ -382,7 +382,6 @@ class _FoodCard extends StatelessWidget {
     );
   }
 
-  // ── Detail dialog ─────────────────────────────────────────────────────────
   void _showDetails(BuildContext context) {
     final dialogBg   = ThemeHelper.sheetColor(context);
     final textColor  = ThemeHelper.onSurface(context);
@@ -409,7 +408,8 @@ class _FoodCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(post.item, style: AppTextStyles.sectionHead.copyWith(color: textColor)),
+                Text(post.item, style: AppTextStyles.sectionHead.copyWith(color: textColor),
+                    overflow: TextOverflow.ellipsis),
                 Text('From: ${post.donor}', style: AppTextStyles.bodySmall.copyWith(color: mutedColor)),
               ])),
             ]),
@@ -427,10 +427,9 @@ class _FoodCard extends StatelessWidget {
                 child: Row(children: [
                   const Icon(Icons.phone_outlined, size: 15, color: Color(0xFF5B8DEF)),
                   const SizedBox(width: 8),
-                  Text('Contact Donor: ',
-                      style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600, color: textColor)),
-                  Text(post.donorPhone, style: AppTextStyles.bodySmall.copyWith(
-                      color: const Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
+                  Flexible(child: Text('Contact Donor: ${post.donorPhone}',
+                      style: AppTextStyles.bodySmall.copyWith(color: textColor),
+                      overflow: TextOverflow.ellipsis)),
                 ]),
               ),
             ],
@@ -441,12 +440,12 @@ class _FoodCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: post.isExpired 
+                  color: post.isExpired
                     ? const Color(0xFFE07856).withAlpha(20)
                     : const Color(0xFF6B9080).withAlpha(20),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: post.isExpired 
+                    color: post.isExpired
                       ? const Color(0xFFE07856).withAlpha(56)
                       : const Color(0xFF6B9080).withAlpha(56),
                   ),
@@ -458,17 +457,14 @@ class _FoodCard extends StatelessWidget {
                     color: post.isExpired ? const Color(0xFFE07856) : const Color(0xFF6B9080),
                   ),
                   const SizedBox(width: 8),
-                  Text('expires: ',
-                      style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600, color: textColor)),
-                  Expanded(
-                    child: Text(
-                      post.isExpired ? 'EXPIRED' : post.remainingTimeFormatted,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: post.isExpired ? const Color(0xFFE07856) : const Color(0xFF6B9080),
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Flexible(child: Text(
+                    'Expires: ${post.isExpired ? 'EXPIRED' : post.remainingTimeFormatted}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: post.isExpired ? const Color(0xFFE07856) : const Color(0xFF6B9080),
+                      fontWeight: FontWeight.w700,
                     ),
-                  ),
+                    overflow: TextOverflow.ellipsis,
+                  )),
                 ]),
               ),
             ],
@@ -486,9 +482,8 @@ class _FoodCard extends StatelessWidget {
                   Row(children: [
                     const Icon(Icons.local_dining_outlined, color: AppColors.sage, size: 16),
                     const SizedBox(width: 6),
-                    Text('Nutrition Facts',
-                        style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.sage)),
-                    const Spacer(),
+                    Expanded(child: Text('Nutrition Facts',
+                        style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.sage))),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -596,49 +591,50 @@ class _FoodCard extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Action buttons
-            Row(children: [
-              Expanded(child: SizedBox(
-                height: AppResponsive.h(52),
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: textColor,
-                    side: BorderSide(color: ThemeHelper.dividerColor(context)),
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppResponsive.r(AppDimensions.radiusMd))),
-                  ),
-                  child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: SizedBox(
-                height: 52,
-                child: GestureDetector(
-                  onTap: () { Navigator.pop(ctx); _confirmClaim(context); },
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.sageButton,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                      boxShadow: [BoxShadow(
-                          color: AppColors.sage.withAlpha(71), blurRadius: 10, offset: const Offset(0, 4))],
+            // ── FIX: Both buttons use IntrinsicHeight + symmetric padding ──
+            IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textColor,
+                      side: BorderSide(color: ThemeHelper.dividerColor(context)),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text('Claim Food',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    child: const Text('Close',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   ),
                 ),
-              )),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () { Navigator.pop(ctx); _confirmClaim(context); },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.sageButton,
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                        boxShadow: [BoxShadow(
+                            color: AppColors.sage.withAlpha(71), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('Claim Food',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
           ]),
         ),
       ),
     );
   }
 
-  // ── Confirm claim dialog ──────────────────────────────────────────────────
   void _confirmClaim(BuildContext context) {
     final dialogBg   = ThemeHelper.sheetColor(context);
     final textColor  = ThemeHelper.onSurface(context);
@@ -683,51 +679,55 @@ class _FoodCard extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: SizedBox(
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: textColor,
-                    side: BorderSide(color: ThemeHelper.dividerColor(context)),
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
-                  ),
-                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: SizedBox(
-                height: 52,
-                child: GestureDetector(
-                  onTap: () async {
-                    try {
-                      await MealService().claimMeal(post.id);
-                      if (!context.mounted) return;
-                      Navigator.pop(ctx);
-                      _snack(context, '✅ Food claimed! Donor has been notified', AppColors.sage);
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      _snack(context, 'Error: $e', AppColors.terr);
-                    }
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.sageButton,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-                      boxShadow: [BoxShadow(
-                          color: AppColors.sage.withAlpha(71), blurRadius: 10, offset: const Offset(0, 4))],
+
+            // ── FIX: Both buttons use IntrinsicHeight + symmetric padding ──
+            IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textColor,
+                      side: BorderSide(color: ThemeHelper.dividerColor(context)),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text('Confirm Pickup',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   ),
                 ),
-              )),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                      try {
+                        await MealService().claimMeal(post.id);
+                        if (!context.mounted) return;
+                        Navigator.pop(ctx);
+                        _snack(context, '✅ Food claimed! Donor has been notified', AppColors.sage);
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        _snack(context, 'Error: $e', AppColors.terr);
+                      }
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.sageButton,
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                        boxShadow: [BoxShadow(
+                            color: AppColors.sage.withAlpha(71), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('Confirm Pickup',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
           ]),
         ),
       ),
@@ -818,10 +818,12 @@ class _SharedDrawer extends StatelessWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(user?.orgName ?? 'Guest',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700,
-                      fontSize: 16, fontFamily: 'Georgia')),
+                      fontSize: 16, fontFamily: 'Georgia'),
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 3),
               Text(user?.email ?? '—',
-                  style: TextStyle(color: Colors.white.withAlpha(191), fontSize: 12.5)),
+                  style: TextStyle(color: Colors.white.withAlpha(191), fontSize: 12.5),
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 5),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -842,7 +844,6 @@ class _SharedDrawer extends StatelessWidget {
         ),
         Divider(color: ThemeHelper.dividerColor(context), indent: 20, endIndent: 20),
 
-        // ── Pickup History ──────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           child: ListTile(
@@ -950,12 +951,12 @@ class _PickupHistorySheet extends StatelessWidget {
                   child: const Icon(Icons.history_rounded, color: AppColors.amber, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Pickup History',
                       style: AppTextStyles.cardHead.copyWith(fontSize: 17, color: textColor)),
                   Text('Food you have collected',
                       style: AppTextStyles.bodySmall.copyWith(color: mutedColor)),
-                ]),
+                ])),
               ]),
               const SizedBox(height: 12),
               Divider(color: ThemeHelper.dividerColor(context)),
@@ -1069,7 +1070,9 @@ class _ClaimedFoodCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Expanded(child: Text(post.item,
-                style: AppTextStyles.sectionHead.copyWith(fontSize: 16, color: textColor))),
+                style: AppTextStyles.sectionHead.copyWith(fontSize: 16, color: textColor),
+                overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -1088,8 +1091,10 @@ class _ClaimedFoodCard extends StatelessWidget {
           Row(children: [
             Icon(Icons.business_outlined, size: 13, color: mutedColor),
             const SizedBox(width: 4),
-            Text('From: ${post.donor}', style: AppTextStyles.bodySmall.copyWith(color: mutedColor)),
-            const SizedBox(width: 12),
+            Expanded(child: Text('From: ${post.donor}',
+                style: AppTextStyles.bodySmall.copyWith(color: mutedColor),
+                overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 8),
             Icon(Icons.scale_outlined, size: 13, color: mutedColor),
             const SizedBox(width: 4),
             Text(post.qty, style: AppTextStyles.bodySmall.copyWith(color: mutedColor)),
@@ -1105,10 +1110,9 @@ class _ClaimedFoodCard extends StatelessWidget {
               child: Row(children: [
                 const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF5B8DEF)),
                 const SizedBox(width: 8),
-                Text('Contact Donor: ',
-                    style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600, color: textColor)),
-                Text(post.donorPhone, style: AppTextStyles.bodySmall.copyWith(
-                    color: const Color(0xFF5B8DEF), fontWeight: FontWeight.w700)),
+                Flexible(child: Text('Contact Donor: ${post.donorPhone}',
+                    style: AppTextStyles.bodySmall.copyWith(color: textColor),
+                    overflow: TextOverflow.ellipsis)),
               ]),
             ),
           ],
@@ -1193,6 +1197,7 @@ class _HistoryCard extends StatelessWidget {
               Expanded(child: Text(entry.item,
                   style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, fontSize: 14.5, color: textColor),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -1231,8 +1236,9 @@ class _HistoryCard extends StatelessWidget {
             Row(children: [
               Icon(Icons.access_time_rounded, size: 12, color: mutedColor),
               const SizedBox(width: 4),
-              Text(DateFormat('dd MMM yyyy, hh:mm a').format(entry.completedAt),
-                  style: AppTextStyles.bodySmall.copyWith(color: mutedColor, fontSize: 10.5)),
+              Flexible(child: Text(DateFormat('dd MMM yyyy, hh:mm a').format(entry.completedAt),
+                  style: AppTextStyles.bodySmall.copyWith(color: mutedColor, fontSize: 10.5),
+                  overflow: TextOverflow.ellipsis)),
             ]),
           ])),
         ]),
@@ -1318,9 +1324,9 @@ class _NutrientChip extends StatelessWidget {
         Container(width: iconSize, height: iconSize,
             decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(iconRadius))),
         SizedBox(width: AppResponsive.w(6)),
-        Text('$label · $value', style: TextStyle(
+        Flexible(child: Text('$label · $value', style: TextStyle(
             fontSize: AppResponsive.sp(11.5), fontWeight: FontWeight.w600,
-            color: color.withAlpha(217))),
+            color: color.withAlpha(217)), overflow: TextOverflow.ellipsis)),
       ]),
     );
   }
