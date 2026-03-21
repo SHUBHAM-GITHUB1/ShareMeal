@@ -54,10 +54,13 @@ class _PickupMapScreenState extends State<PickupMapScreen>
     super.initState();
     _pickupPoint = LatLng(widget.lat, widget.lng);
     _mapCtrl     = MapController();
-    _compassCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _compassCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
     _geocodePickup();
     _mapCtrl.mapEventStream.listen((event) {
-      if (event is MapEventRotate) setState(() => _mapRotation = event.camera.rotation);
+      if (event is MapEventRotate) {
+        setState(() => _mapRotation = event.camera.rotation);
+      }
     });
   }
 
@@ -70,40 +73,50 @@ class _PickupMapScreenState extends State<PickupMapScreen>
 
   Future<void> _geocodePickup() async {
     try {
-      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=${widget.lat}&lon=${widget.lng}&addressdetails=1');
-      final response = await http.get(url, headers: {'User-Agent': 'ShareMeal/1.0'});
+      final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?format=json'
+          '&lat=${widget.lat}&lon=${widget.lng}&addressdetails=1');
+      final response =
+          await http.get(url, headers: {'User-Agent': 'ShareMeal/1.0'});
       if (response.statusCode == 200 && mounted) {
         final data = json.decode(response.body);
         if (data['address'] != null) {
           final addr = data['address'];
           setState(() {
-            _street  = _c(addr['house_number'] ?? '') + ' ' + _c(addr['road'] ?? '');
-            _area    = _c(addr['suburb'] ?? addr['neighbourhood'] ?? '');
-            _city    = _c(addr['city'] ?? addr['town'] ?? addr['village'] ?? '');
-            _pincode = _c(addr['postcode'] ?? '');
-            _state   = _c(addr['state'] ?? '');
-            _country = _c(addr['country'] ?? '');
+            _street  = '${_c(addr['house_number'])} ${_c(addr['road'])}'.trim();
+            _area    = _c(addr['suburb'] ?? addr['neighbourhood']);
+            _city    = _c(addr['city'] ?? addr['town'] ?? addr['village']);
+            _pincode = _c(addr['postcode']);
+            _state   = _c(addr['state']);
+            _country = _c(addr['country']);
           });
         }
       }
     } catch (_) {}
   }
 
-  String _c(String? s) => (s ?? '').trim();
+  String _c(dynamic s) => (s as String? ?? '').trim();
 
   Future<void> _goToMyLocation() async {
     setState(() => _locating = true);
     try {
       LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
       if (perm == LocationPermission.deniedForever) {
         _snack('Location permission denied. Enable in settings.');
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high));
       final ll = LatLng(pos.latitude, pos.longitude);
-      setState(() { _myLocation = ll; _distanceKm = _haversine(ll, _pickupPoint); _showRoute = true; });
+      setState(() {
+        _myLocation = ll;
+        _distanceKm = _haversine(ll, _pickupPoint);
+        _showRoute  = true;
+      });
       _mapCtrl.move(ll, 14);
     } catch (e) {
       _snack('Could not get location: $e');
@@ -121,21 +134,24 @@ class _PickupMapScreenState extends State<PickupMapScreen>
     final dLng = _rad(b.longitude - a.longitude);
     final x = math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(_rad(a.latitude)) * math.cos(_rad(b.latitude)) *
-        math.sin(dLng / 2) * math.sin(dLng / 2);
+            math.sin(dLng / 2) * math.sin(dLng / 2);
     return r * 2 * math.atan2(math.sqrt(x), math.sqrt(1 - x));
   }
+
   double _rad(double deg) => deg * math.pi / 180;
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg), backgroundColor: AppColors.terr,
+      content: Text(msg),
+      backgroundColor: AppColors.terr,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
   }
 
   String get _tileUrl => _satelliteMode
-      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/'
+        'World_Imagery/MapServer/tile/{z}/{y}/{x}'
       : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   @override
@@ -152,262 +168,408 @@ class _PickupMapScreenState extends State<PickupMapScreen>
         : <LatLng>[];
 
     return Scaffold(
-      body: Stack(children: [
+      // KEY CHANGE: Column instead of Stack at the top level.
+      // Map takes Expanded (all remaining height), card sits below it.
+      // Controls are positioned within the map's own Stack — they can
+      // NEVER be obscured by the card because the card is outside that Stack.
+      body: Column(
+        children: [
 
-        // ── Map ──────────────────────────────────────────────────────
-        FlutterMap(
-          mapController: _mapCtrl,
-          options: MapOptions(
-            initialCenter: _pickupPoint,
-            initialZoom: 15,
-            interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
-          ),
-          children: [
-            TileLayer(urlTemplate: _tileUrl, userAgentPackageName: 'com.sharemeal.app', maxZoom: 19),
+          // ══════════════════════════════════════════════════════════
+          // MAP SECTION — fills all space above the card
+          // ══════════════════════════════════════════════════════════
+          Expanded(
+            child: Stack(children: [
 
-            if (polylinePoints.length == 2)
-              PolylineLayer(polylines: [
-                Polyline(points: polylinePoints, strokeWidth: 3.5, color: AppColors.sage,
-                    pattern: const StrokePattern.dotted()),
-              ]),
-
-            MarkerLayer(markers: [
-              // Pickup pin
-              Marker(
-                point: _pickupPoint, width: 48, height: 60,
-                child: Column(children: [
-                  Container(
-                    width: 38, height: 38,
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.sageButton, shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: AppColors.sage.withAlpha(140), blurRadius: 12, offset: const Offset(0, 4))],
-                    ),
-                    child: const Icon(Icons.restaurant_rounded, color: Colors.white, size: 20),
-                  ),
-                  CustomPaint(size: const Size(12, 8), painter: _PinTailPainter(AppColors.sage)),
-                ]),
-              ),
-              // My location pin
-              if (_myLocation != null)
-                Marker(
-                  point: _myLocation!, width: 44, height: 52,
-                  child: Column(children: [
-                    Container(
-                      width: 34, height: 34,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A73E8), shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2.5),
-                        boxShadow: [BoxShadow(color: const Color(0xFF1A73E8).withAlpha(120), blurRadius: 10, offset: const Offset(0, 3))],
-                      ),
-                      child: const Icon(Icons.person_pin_circle_rounded, color: Colors.white, size: 18),
-                    ),
-                    CustomPaint(size: const Size(10, 7), painter: _PinTailPainter(const Color(0xFF1A73E8))),
-                  ]),
+              // Map
+              FlutterMap(
+                mapController: _mapCtrl,
+                options: MapOptions(
+                  initialCenter: _pickupPoint,
+                  initialZoom: 15,
+                  interactionOptions:
+                      const InteractionOptions(flags: InteractiveFlag.all),
                 ),
-            ]),
-          ],
-        ),
-
-        // ── Top AppBar ───────────────────────────────────────────────
-        Positioned(
-          top: 0, left: 0, right: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppGradients.heroBar,
-              boxShadow: [BoxShadow(color: Colors.black.withAlpha(38), blurRadius: 8, offset: const Offset(0, 2))],
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Row(children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+                children: [
+                  TileLayer(
+                    urlTemplate: _tileUrl,
+                    userAgentPackageName: 'com.sharemeal.app',
+                    maxZoom: 19,
                   ),
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Pickup Location',
-                          style: TextStyle(color: Colors.white, fontFamily: 'Georgia', fontWeight: FontWeight.w700, fontSize: 16)),
-                      Text(widget.foodItem, style: TextStyle(color: Colors.white.withAlpha(200), fontSize: 11.5)),
-                    ],
-                  )),
-                  // Layer toggle
-                  GestureDetector(
-                    onTap: () => setState(() => _satelliteMode = !_satelliteMode),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(40), borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withAlpha(80)),
+                  if (polylinePoints.length == 2)
+                    PolylineLayer(polylines: [
+                      Polyline(
+                        points: polylinePoints,
+                        strokeWidth: 3.5,
+                        color: AppColors.sage,
+                        pattern: const StrokePattern.dotted(),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(_satelliteMode ? Icons.map_outlined : Icons.satellite_alt_rounded, color: Colors.white, size: 14),
+                    ]),
+                  MarkerLayer(markers: [
+                    // Pickup pin
+                    Marker(
+                      point: _pickupPoint, width: 48, height: 60,
+                      child: Column(children: [
+                        Container(
+                          width: 38, height: 38,
+                          decoration: BoxDecoration(
+                            gradient: AppGradients.sageButton,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(
+                              color: AppColors.sage.withAlpha(140),
+                              blurRadius: 12, offset: const Offset(0, 4),
+                            )],
+                          ),
+                          child: const Icon(Icons.restaurant_rounded,
+                              color: Colors.white, size: 20),
+                        ),
+                        CustomPaint(
+                            size: const Size(12, 8),
+                            painter: _PinTailPainter(AppColors.sage)),
+                      ]),
+                    ),
+                    // My location pin
+                    if (_myLocation != null)
+                      Marker(
+                        point: _myLocation!, width: 44, height: 52,
+                        child: Column(children: [
+                          Container(
+                            width: 34, height: 34,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A73E8),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2.5),
+                              boxShadow: [BoxShadow(
+                                color: const Color(0xFF1A73E8).withAlpha(120),
+                                blurRadius: 10, offset: const Offset(0, 3),
+                              )],
+                            ),
+                            child: const Icon(Icons.person_pin_circle_rounded,
+                                color: Colors.white, size: 18),
+                          ),
+                          CustomPaint(
+                              size: const Size(10, 7),
+                              painter: _PinTailPainter(const Color(0xFF1A73E8))),
+                        ]),
+                      ),
+                  ]),
+                ],
+              ),
+
+              // ── Top AppBar ────────────────────────────────────────
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.heroBar,
+                    boxShadow: [BoxShadow(
+                      color: Colors.black.withAlpha(38),
+                      blurRadius: 8, offset: const Offset(0, 2),
+                    )],
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      child: Row(children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded,
+                              color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('Pickup Location',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontFamily: 'Georgia',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  )),
+                              Text(widget.foodItem,
+                                  style: TextStyle(
+                                      color: Colors.white.withAlpha(200),
+                                      fontSize: 11.5)),
+                            ],
+                          ),
+                        ),
+                        // Satellite / Street toggle
+                        GestureDetector(
+                          onTap: () =>
+                              setState(() => _satelliteMode = !_satelliteMode),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(40),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: Colors.white.withAlpha(80)),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(
+                                _satelliteMode
+                                    ? Icons.map_outlined
+                                    : Icons.satellite_alt_rounded,
+                                color: Colors.white, size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _satelliteMode ? 'Street' : 'Satellite',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ]),
+                          ),
+                        ),
                         const SizedBox(width: 4),
-                        Text(_satelliteMode ? 'Street' : 'Satellite',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                       ]),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                ),
+              ),
+
+              // ── Distance badge (top-left, below app bar) ──────────
+              if (_distanceKm != null)
+                Positioned(
+                  top: 100, left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: btnBg,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [BoxShadow(
+                        color: Colors.black.withAlpha(31),
+                        blurRadius: 8, offset: const Offset(0, 2),
+                      )],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.directions_walk_rounded,
+                          size: 14, color: AppColors.sage),
+                      const SizedBox(width: 5),
+                      Text(
+                        _distanceKm! < 1
+                            ? '${(_distanceKm! * 1000).toStringAsFixed(0)} m away'
+                            : '${_distanceKm!.toStringAsFixed(1)} km away',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.sage,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+
+              // ── Right-side controls ───────────────────────────────
+              // bottom: 12 from the BOTTOM OF THE MAP (not the screen),
+              // so they're always visible above the card seam.
+              Positioned(
+                right: 12, bottom: 12,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  // Compass
+                  GestureDetector(
+                    onTap: _resetNorth,
+                    child: Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(
+                        color: btnBg, shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(
+                          color: Colors.black.withAlpha(31),
+                          blurRadius: 6, offset: const Offset(0, 2),
+                        )],
+                      ),
+                      child: Transform.rotate(
+                        angle: -_mapRotation * math.pi / 180,
+                        child: const Icon(Icons.explore_rounded,
+                            size: 20, color: AppColors.terr),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Focus on pickup
+                  _ControlBtn(
+                    icon: Icons.restaurant_rounded,
+                    color: AppColors.sage,
+                    bgColor: btnBg,
+                    onTap: _focusPickup,
+                  ),
+                  const SizedBox(height: 6),
+                  // My location
+                  _ControlBtn(
+                    icon: Icons.my_location_rounded,
+                    bgColor: btnBg,
+                    iconColor: AppColors.sage,
+                    loading: _locating,
+                    onTap: _locating ? () {} : _goToMyLocation,
+                  ),
+                  const SizedBox(height: 6),
+                  // Zoom in
+                  _ControlBtn(
+                    icon: Icons.add, bgColor: btnBg, iconColor: btnIcon,
+                    onTap: () {
+                      final c = _mapCtrl.camera;
+                      _mapCtrl.move(c.center, c.zoom + 1);
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  // Zoom out
+                  _ControlBtn(
+                    icon: Icons.remove, bgColor: btnBg, iconColor: btnIcon,
+                    onTap: () {
+                      final c = _mapCtrl.camera;
+                      _mapCtrl.move(c.center, c.zoom - 1);
+                    },
+                  ),
                 ]),
               ),
-            ),
-          ),
-        ),
 
-        // ── Distance badge ───────────────────────────────────────────
-        if (_distanceKm != null)
-          Positioned(
-            top: 100, left: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: btnBg, borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withAlpha(31), blurRadius: 8, offset: const Offset(0, 2))],
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.directions_walk_rounded, size: 14, color: AppColors.sage),
-                const SizedBox(width: 5),
-                Text(
-                  _distanceKm! < 1
-                      ? '${(_distanceKm! * 1000).toStringAsFixed(0)} m away'
-                      : '${_distanceKm!.toStringAsFixed(1)} km away',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.sage),
-                ),
-              ]),
-            ),
+            ]),
           ),
 
-        // ── Right-side controls ──────────────────────────────────────
-        Positioned(
-          right: 12, bottom: 260,
-          child: Column(children: [
-            // Compass
-            GestureDetector(
-              onTap: _resetNorth,
-              child: Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(
-                  color: btnBg, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.black.withAlpha(31), blurRadius: 6, offset: const Offset(0, 2))],
-                ),
-                child: Transform.rotate(
-                  angle: -_mapRotation * math.pi / 180,
-                  child: const Icon(Icons.explore_rounded, size: 20, color: AppColors.terr),
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            _ControlBtn(icon: Icons.restaurant_rounded, color: AppColors.sage, bgColor: btnBg, onTap: _focusPickup),
-            const SizedBox(height: 6),
-            _ControlBtn(icon: Icons.add, bgColor: btnBg, iconColor: btnIcon,
-                onTap: () { final c = _mapCtrl.camera; _mapCtrl.move(c.center, c.zoom + 1); }),
-            const SizedBox(height: 4),
-            _ControlBtn(icon: Icons.remove, bgColor: btnBg, iconColor: btnIcon,
-                onTap: () { final c = _mapCtrl.camera; _mapCtrl.move(c.center, c.zoom - 1); }),
-          ]),
-        ),
-
-        // ── My Location FAB ──────────────────────────────────────────
-        Positioned(
-          right: 12, bottom: 220,
-          child: FloatingActionButton.small(
-            heroTag: 'ngoLoc',
-            backgroundColor: btnBg,
-            elevation: 4,
-            onPressed: _locating ? null : _goToMyLocation,
-            child: _locating
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.sage))
-                : const Icon(Icons.my_location_rounded, color: AppColors.sage, size: 20),
-          ),
-        ),
-
-        // ── Bottom address card ──────────────────────────────────────
-        Positioned(
-          bottom: 0, left: 0, right: 0,
-          child: Container(
+          // ══════════════════════════════════════════════════════════
+          // ADDRESS CARD — lives BELOW the map in the Column.
+          // It can never grow over the map or obscure any controls.
+          // ══════════════════════════════════════════════════════════
+          Container(
+            width: double.infinity,
             decoration: BoxDecoration(
               color: cardBg,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: [BoxShadow(color: Colors.black.withAlpha(31), blurRadius: 20, offset: const Offset(0, -4))],
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [BoxShadow(
+                color: Colors.black.withAlpha(40),
+                blurRadius: 16, offset: const Offset(0, -4),
+              )],
             ),
-            padding: EdgeInsets.fromLTRB(20, 14, 20, bottomPad + 16),
+            padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPad + 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 36, height: 4,
-                  decoration: BoxDecoration(color: ThemeHelper.dividerColor(context), borderRadius: BorderRadius.circular(4))),
-              const SizedBox(height: 14),
 
-              // Food + donor header
+              // Drag handle visual
+              Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: ThemeHelper.dividerColor(context),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Food + donor header row
               Row(children: [
                 Container(
                   width: 42, height: 42,
-                  decoration: BoxDecoration(gradient: AppGradients.sageButton, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.fastfood_outlined, color: Colors.white, size: 20),
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.sageButton,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.fastfood_outlined,
+                      color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(widget.foodItem,
-                      style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, fontSize: 15, color: textColor)),
-                  Text('Donor: ${widget.donorName}',
-                      style: AppTextStyles.bodySmall.copyWith(color: mutedColor)),
-                ])),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.foodItem,
+                          style: AppTextStyles.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: textColor,
+                          )),
+                      Text('Donor: ${widget.donorName}',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: mutedColor)),
+                    ],
+                  ),
+                ),
                 if (_distanceKm != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: AppColors.sage.withAlpha(26), borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.sage.withAlpha(77)),
+                      color: AppColors.sage.withAlpha(26),
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: AppColors.sage.withAlpha(77)),
                     ),
                     child: Text(
                       _distanceKm! < 1
                           ? '${(_distanceKm! * 1000).toStringAsFixed(0)} m'
                           : '${_distanceKm!.toStringAsFixed(1)} km',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.sage),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.sage,
+                      ),
                     ),
                   ),
               ]),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-              // Address card
+              // Address details card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: ThemeHelper.sageBg(context),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.sage.withAlpha(51)),
                 ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    const Icon(Icons.location_on_rounded, color: AppColors.sage, size: 15),
-                    const SizedBox(width: 6),
-                    Text('Pickup Address',
-                        style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.sage, fontSize: 11)),
-                  ]),
-                  const SizedBox(height: 8),
-                  if (_city.isNotEmpty || _state.isNotEmpty) ...[
-                    if (_street.isNotEmpty)  _AddrRow(Icons.signpost_outlined, _street, mutedColor, textColor),
-                    if (_area.isNotEmpty && _area != _city) _AddrRow(Icons.holiday_village_outlined, _area, mutedColor, textColor),
-                    if (_city.isNotEmpty)    _AddrRow(Icons.location_city_outlined, _city, mutedColor, textColor),
-                    if (_pincode.isNotEmpty) _AddrRow(Icons.pin_drop_outlined, 'PIN Code: $_pincode', mutedColor, textColor),
-                    if (_state.isNotEmpty)   _AddrRow(Icons.map_outlined, _state, mutedColor, textColor),
-                    if (_country.isNotEmpty) _AddrRow(Icons.flag_outlined, _country, mutedColor, textColor),
-                  ] else
-                    Text(widget.address, style: AppTextStyles.body.copyWith(fontSize: 13, color: textColor)),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.address.isNotEmpty
-                        ? widget.address
-                        : '${widget.lat.toStringAsFixed(5)}, ${widget.lng.toStringAsFixed(5)}',
-                    style: AppTextStyles.bodySmall.copyWith(fontSize: 10, color: mutedColor),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.location_on_rounded,
+                          color: AppColors.sage, size: 14),
+                      const SizedBox(width: 5),
+                      Text('Pickup Address',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.sage,
+                            fontSize: 11,
+                          )),
+                    ]),
+                    const SizedBox(height: 8),
+                    if (_city.isNotEmpty || _state.isNotEmpty) ...[
+                      _AddrLine(_street, mutedColor, textColor),
+                      if (_area.isNotEmpty && _area != _city)
+                        _AddrLine(_area, mutedColor, textColor),
+                      _AddrLine(_city, mutedColor, textColor),
+                      if (_pincode.isNotEmpty)
+                        _AddrLine('PIN $_pincode', mutedColor, textColor),
+                      _AddrLine(_state, mutedColor, textColor),
+                      _AddrLine(_country, mutedColor, textColor),
+                    ] else
+                      Text(widget.address,
+                          style: AppTextStyles.body
+                              .copyWith(fontSize: 13, color: textColor)),
+                    const SizedBox(height: 4),
+                    // Raw address / coords in muted small text
+                    Text(
+                      widget.address.isNotEmpty
+                          ? widget.address
+                          : '${widget.lat.toStringAsFixed(5)}, '
+                            '${widget.lng.toStringAsFixed(5)}',
+                      style: AppTextStyles.bodySmall
+                          .copyWith(fontSize: 10, color: mutedColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
 
+              // "Show My Location" button — only shown before location is known
               if (_myLocation == null) ...[
                 const SizedBox(height: 10),
                 SizedBox(
@@ -415,55 +577,79 @@ class _PickupMapScreenState extends State<PickupMapScreen>
                   child: OutlinedButton.icon(
                     onPressed: _locating ? null : _goToMyLocation,
                     icon: _locating
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.sage))
-                        : const Icon(Icons.my_location_rounded, size: 16, color: AppColors.sage),
+                        ? const SizedBox(
+                            width: 14, height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.sage))
+                        : const Icon(Icons.my_location_rounded,
+                            size: 16, color: AppColors.sage),
                     label: Text(
-                      _locating ? 'Getting location…' : 'Show My Location & Distance',
-                      style: const TextStyle(color: AppColors.sage, fontWeight: FontWeight.w600, fontSize: 13),
+                      _locating
+                          ? 'Getting location…'
+                          : 'Show My Location & Distance',
+                      style: const TextStyle(
+                        color: AppColors.sage,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.sage),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
               ],
             ]),
           ),
-        ),
-      ]),
+
+        ],
+      ),
     );
   }
 }
 
-// ── Address row widget ────────────────────────────────────────────────────────
-class _AddrRow extends StatelessWidget {
-  final IconData icon;
+// ── Compact single-line address entry (skips empty strings) ──────────────────
+class _AddrLine extends StatelessWidget {
   final String text;
   final Color mutedColor, textColor;
-  const _AddrRow(this.icon, this.text, this.mutedColor, this.textColor);
+  const _AddrLine(this.text, this.mutedColor, this.textColor);
+
   @override
   Widget build(BuildContext context) {
+    if (text.trim().isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, size: 13, color: mutedColor),
-        const SizedBox(width: 6),
-        Expanded(child: Text(text, style: AppTextStyles.body.copyWith(fontSize: 12.5, color: textColor))),
-      ]),
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        text,
+        style: AppTextStyles.body.copyWith(fontSize: 12.5, color: textColor),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
 
-// ── Control button ────────────────────────────────────────────────────────────
+// ── Control button (with optional loading indicator) ─────────────────────────
 class _ControlBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final Color bgColor;
   final Color? color;
   final Color? iconColor;
-  const _ControlBtn({required this.icon, required this.onTap, required this.bgColor, this.color, this.iconColor});
+  final bool loading;
+
+  const _ControlBtn({
+    required this.icon,
+    required this.onTap,
+    required this.bgColor,
+    this.color,
+    this.iconColor,
+    this.loading = false,
+  });
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -471,10 +657,23 @@ class _ControlBtn extends StatelessWidget {
       child: Container(
         width: 38, height: 38,
         decoration: BoxDecoration(
-          color: bgColor, borderRadius: BorderRadius.circular(8),
-          boxShadow: [BoxShadow(color: Colors.black.withAlpha(31), blurRadius: 6, offset: const Offset(0, 2))],
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withAlpha(31),
+            blurRadius: 6, offset: const Offset(0, 2),
+          )],
         ),
-        child: Icon(icon, size: 20, color: color ?? iconColor ?? AppColors.ink2),
+        child: loading
+            ? const Center(
+                child: SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppColors.sage),
+                ),
+              )
+            : Icon(icon, size: 20,
+                color: color ?? iconColor ?? AppColors.ink2),
       ),
     );
   }
@@ -484,9 +683,12 @@ class _ControlBtn extends StatelessWidget {
 class _PinTailPainter extends CustomPainter {
   final Color color;
   const _PinTailPainter(this.color);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final path = ui.Path()
       ..moveTo(0, 0)
       ..lineTo(size.width / 2, size.height)
@@ -494,5 +696,7 @@ class _PinTailPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path, paint);
   }
-  @override bool shouldRepaint(_) => false;
+
+  @override
+  bool shouldRepaint(_) => false;
 }
