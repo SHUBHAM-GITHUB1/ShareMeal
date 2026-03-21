@@ -339,35 +339,39 @@ class _DonorDashboardState extends State<DonorDashboard>
 
                   // Veg toggle
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppThemeColors.fieldBg(sheetCtx),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: AppThemeColors.fieldBorder(sheetCtx)),
                     ),
                     child: Row(children: [
-                      Text('Food Type', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600, color: onSurface)),
-                      const SizedBox(width: 16),
-                      _VegToggle(label: '🟢  Veg',     value: true,  group: _isVeg, color: AppColors.sage, onChanged: (v) => setModal(() => _isVeg = v!)),
-                      const SizedBox(width: 12),
-                      _VegToggle(label: '🔴  Non-Veg', value: false, group: _isVeg, color: AppColors.terr, onChanged: (v) => setModal(() => _isVeg = v!)),
+                      Text('Food Type',
+                          style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600, color: onSurface, fontSize: 13)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Row(children: [
+                          Expanded(child: _VegToggle(label: 'Veg',     value: true,  group: _isVeg, color: AppColors.sage, onChanged: (v) => setModal(() => _isVeg = v!))),
+                          Expanded(child: _VegToggle(label: 'Non-Veg', value: false, group: _isVeg, color: AppColors.terr, onChanged: (v) => setModal(() => _isVeg = v!))),
+                        ]),
+                      ),
                     ]),
                   ),
                   const SizedBox(height: 24),
 
-                  // Buttons
-                  Row(children: [
+                  // Buttons — both locked to the same 52px height
+                  IntrinsicHeight(
+                   child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _isPosting ? null : () => Navigator.pop(sheetCtx),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: isDark ? const Color(0xFFD0D8DC) : AppColors.ink2,
                           side: BorderSide(color: AppThemeColors.fieldBorder(sheetCtx)),
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size(double.infinity, AppResponsive.h(52)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppResponsive.r(AppDimensions.radiusMd))),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimensions.radiusMd)),
                         ),
-                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -409,7 +413,7 @@ class _DonorDashboardState extends State<DonorDashboard>
                         },
                       ),
                     ),
-                  ]),
+                  ])),  // IntrinsicHeight > Row
                 ]),
               ),
             ),
@@ -541,9 +545,16 @@ class _DonorPostCardState extends State<_DonorPostCard> {
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // FIX: Wrap title row to prevent overflow from badge + delete btn
             Row(children: [
-              Expanded(child: Text(_post.item,
-                  style: AppTextStyles.bodyThemed(context).copyWith(fontWeight: FontWeight.w700, fontSize: 15.5))),
+              Expanded(
+                child: Text(_post.item,
+                    style: AppTextStyles.bodyThemed(context).copyWith(
+                        fontWeight: FontWeight.w700, fontSize: 15.5),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1),
+              ),
+              const SizedBox(width: 6),
               if (isPickedUp) _PickedUpBadge()
               else if (isClaimed) _ClaimedBadge()
               else _StatusBadge(),
@@ -568,35 +579,37 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                   color: const Color(0xFFE07856).withOpacity(0.9),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.warning_rounded, size: 14, color: Colors.white),
-                  const SizedBox(width: 4),
-                  const Text(
-                    'EXPIRED',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.warning_rounded, size: 14, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text('EXPIRED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
                 ]),
               ),
             ],
             const SizedBox(height: 6),
-            Row(children: [
-              const Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
-              const SizedBox(width: 4),
-              Text(_post.qty, style: AppTextStyles.bodySmallThemed(context).copyWith(color: AppThemeColors.onSurface2(context))),
-              const SizedBox(width: 12),
-              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.ink3),
-              const SizedBox(width: 4),
-              Text(DateFormat('hh:mm a').format(_post.time), style: AppTextStyles.bodySmallThemed(context)),
-              const SizedBox(width: 12),
-              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: accent)),
-              const SizedBox(width: 4),
-              Text(_post.isVeg ? 'Veg' : 'Non-Veg',
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: accent)),
-            ]),
+            // FIX: wrap meta row so it never overflows on narrow cards
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.scale_outlined, size: 13, color: AppColors.ink3),
+                  const SizedBox(width: 4),
+                  Text(_post.qty, style: AppTextStyles.bodySmallThemed(context).copyWith(color: AppThemeColors.onSurface2(context))),
+                ]),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.access_time_rounded, size: 13, color: AppColors.ink3),
+                  const SizedBox(width: 4),
+                  Text(DateFormat('hh:mm a').format(_post.time), style: AppTextStyles.bodySmallThemed(context)),
+                ]),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: accent)),
+                  const SizedBox(width: 4),
+                  Text(_post.isVeg ? 'Veg' : 'Non-Veg',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: accent)),
+                ]),
+              ],
+            ),
             // ⏰ Display expiry time if set
             if (_post.expiryTime != null) ...[
               const SizedBox(height: 8),
@@ -638,11 +651,14 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.amber.withAlpha(64)),
                 ),
-                child: const Row(children: [
-                  Icon(Icons.directions_bike_outlined, size: 15, color: AppColors.amberDk),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('NGO has claimed — tap below once they collect the food',
-                      style: TextStyle(fontSize: 12, color: AppColors.amberDk, fontWeight: FontWeight.w600))),
+                // FIX: wrap text in Expanded to prevent overflow
+                child: Row(children: [
+                  const Icon(Icons.directions_bike_outlined, size: 15, color: AppColors.amberDk),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('NGO has claimed — tap below once they collect the food',
+                        style: TextStyle(fontSize: 12, color: AppColors.amberDk, fontWeight: FontWeight.w600)),
+                  ),
                 ]),
               ),
               const SizedBox(height: 10),
@@ -656,10 +672,15 @@ class _DonorPostCardState extends State<_DonorPostCard> {
                     borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
                     boxShadow: [BoxShadow(color: AppColors.amber.withAlpha(89), blurRadius: 12, offset: const Offset(0, 4))],
                   ),
-                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.inventory_2_outlined, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text('MARK AS PICKED UP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 1.2)),
+                  // FIX: use Flexible for text in button row
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text('MARK AS PICKED UP',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 1.2),
+                          overflow: TextOverflow.ellipsis),
+                    ),
                   ]),
                 ),
               ),
@@ -726,7 +747,6 @@ class _DonorPostCardState extends State<_DonorPostCard> {
     );
   }
 
-  // ── Mark as Picked Up Dialog ──────────────────────────────────
   void _markPickedUpDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -854,10 +874,17 @@ class _SharedAppBar extends StatelessWidget implements PreferredSizeWidget {
           ]),
         ),
         const SizedBox(width: 10),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(title, style: const TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w700, fontSize: 17, letterSpacing: -0.2)),
-          const Text('ShareMeal', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w400, color: Color(0xCCFFFFFF), letterSpacing: 1.5)),
-        ]),
+        // FIX: Expanded prevents title column from overflowing
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(title,
+                style: const TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.w700, fontSize: 17, letterSpacing: -0.2),
+                overflow: TextOverflow.ellipsis),
+            const Text('ShareMeal',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w400, color: Color(0xCCFFFFFF), letterSpacing: 1.5),
+                overflow: TextOverflow.ellipsis),
+          ]),
+        ),
       ]),
       actions: actions,
     );
@@ -894,11 +921,15 @@ class _SharedDrawer extends StatelessWidget {
               ]),
             ),
             const SizedBox(width: 14),
+            // FIX: Expanded prevents drawer header text from overflowing
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(user?.orgName ?? 'Guest',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16, fontFamily: 'Georgia')),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16, fontFamily: 'Georgia'),
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 3),
-              Text(user?.email ?? '—', style: TextStyle(color: Colors.white.withAlpha(191), fontSize: 12.5)),
+              Text(user?.email ?? '—',
+                  style: TextStyle(color: Colors.white.withAlpha(191), fontSize: 12.5),
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 5),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -915,7 +946,6 @@ class _SharedDrawer extends StatelessWidget {
             color: AppColors.sage),
         Divider(color: divColor, indent: 20, endIndent: 20),
 
-        // ── Donation History ────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           child: ListTile(
@@ -999,10 +1029,13 @@ class _DonationHistorySheet extends StatelessWidget {
                     decoration: BoxDecoration(color: AppColors.amber.withAlpha(31), borderRadius: BorderRadius.circular(11)),
                     child: const Icon(Icons.history_rounded, color: AppColors.amber, size: 20)),
                 const SizedBox(width: 12),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Donation History', style: AppTextStyles.cardHeadThemed(ctx).copyWith(fontSize: 17)),
-                  Text('Completed pickups by NGOs', style: AppTextStyles.bodySmallThemed(ctx)),
-                ]),
+                // FIX: Expanded so text doesn't overflow history sheet header
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Donation History', style: AppTextStyles.cardHeadThemed(ctx).copyWith(fontSize: 17)),
+                    Text('Completed pickups by NGOs', style: AppTextStyles.bodySmallThemed(ctx)),
+                  ]),
+                ),
               ]),
               const SizedBox(height: 12),
               Divider(color: AppThemeColors.divider(ctx)),
@@ -1101,11 +1134,14 @@ class _GradientButton extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
+        // match OutlinedButton vertical padding (15 top + 15 bottom + ~22 text = ~52px)
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(
-          gradient: AppGradients.sageButton,
+          gradient: onPressed == null
+              ? LinearGradient(colors: [AppColors.sage.withAlpha(120), AppColors.sageDk.withAlpha(120)])
+              : AppGradients.sageButton,
           borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
-          boxShadow: [BoxShadow(color: AppColors.sage.withAlpha(77), blurRadius: 14, offset: const Offset(0, 5))],
+          boxShadow: onPressed == null ? [] : [BoxShadow(color: AppColors.sage.withAlpha(77), blurRadius: 14, offset: const Offset(0, 5))],
         ),
         alignment: Alignment.center,
         child: isLoading
@@ -1198,8 +1234,18 @@ class _VegToggle extends StatelessWidget {
   const _VegToggle({required this.label, required this.value, required this.group, required this.color, required this.onChanged});
   @override
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-    Radio<bool>(value: value, groupValue: group, onChanged: onChanged, activeColor: color, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
-    Text(label, style: AppTextStyles.bodyThemed(context).copyWith(color: AppThemeColors.onSurface2(context))),
+    Radio<bool>(
+      value: value, groupValue: group, onChanged: onChanged,
+      activeColor: color, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+    Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+    const SizedBox(width: 5),
+    Flexible(
+      child: Text(label,
+          style: AppTextStyles.bodyThemed(context).copyWith(
+              fontSize: 13, color: AppThemeColors.onSurface2(context)),
+          overflow: TextOverflow.ellipsis),
+    ),
   ]);
 }
 
@@ -1219,7 +1265,12 @@ class _NutrientChip extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(width: iconSize, height: iconSize, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(iconRadius))),
         SizedBox(width: AppResponsive.w(6)),
-        Text('$label · $value', style: TextStyle(fontSize: AppResponsive.sp(11.5), fontWeight: FontWeight.w600, color: color.withAlpha(217))),
+        // FIX: constrain text with flexible to prevent chip overflow
+        Flexible(
+          child: Text('$label · $value',
+              style: TextStyle(fontSize: AppResponsive.sp(11.5), fontWeight: FontWeight.w600, color: color.withAlpha(217)),
+              overflow: TextOverflow.ellipsis),
+        ),
       ]),
     );
   }
@@ -1294,6 +1345,7 @@ class _HistoryCard extends StatelessWidget {
               Expanded(child: Text(entry.item,
                   style: AppTextStyles.bodyThemed(context).copyWith(fontWeight: FontWeight.w700, fontSize: 14.5),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: accentColor.withAlpha(26), borderRadius: BorderRadius.circular(20), border: Border.all(color: accentColor.withAlpha(56))),
@@ -1326,8 +1378,12 @@ class _HistoryCard extends StatelessWidget {
             Row(children: [
               const Icon(Icons.access_time_rounded, size: 12, color: AppColors.ink3),
               const SizedBox(width: 4),
-              Text(DateFormat('dd MMM yyyy, hh:mm a').format(entry.completedAt),
-                  style: AppTextStyles.bodySmallThemed(context).copyWith(fontSize: 10.5)),
+              // FIX: Flexible so date text never overflows on narrow screens
+              Flexible(
+                child: Text(DateFormat('dd MMM yyyy, hh:mm a').format(entry.completedAt),
+                    style: AppTextStyles.bodySmallThemed(context).copyWith(fontSize: 10.5),
+                    overflow: TextOverflow.ellipsis),
+              ),
             ]),
           ])),
         ]),
