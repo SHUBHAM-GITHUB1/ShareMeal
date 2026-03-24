@@ -24,6 +24,7 @@ class _NGODashboardState extends State<NGODashboard>
     with SingleTickerProviderStateMixin {
   final _notifService = NotificationService();
   final Set<String> _seenIds = {};
+final DateTime _sessionStart = DateTime.now();
   late final TabController _tabCtrl;
   Position? _myPosition;
 
@@ -42,21 +43,21 @@ class _NGODashboardState extends State<NGODashboard>
   }
 
   void _listenForNewNotifications() {
-    _notifService.streamMyNotifications().listen((notifications) {
-      for (final n in notifications) {
-        if (!n.read && !_seenIds.contains(n.id)) {
-          _seenIds.add(n.id);
-          LocalNotificationService.showFoodNotification(
-            id:         n.id.hashCode,
-            donorName:  n.donorName,
-            item:       n.item,
-            qty:        n.qty,
-            distanceKm: n.distanceKm,
-          );
-        }
-      }
-    });
-  }
+  _notifService.streamMyNotifications().listen((notifications) {
+    for (final n in notifications) {
+      if (_seenIds.contains(n.id)) continue;
+      if (!n.time.isAfter(_sessionStart)) continue;
+      _seenIds.add(n.id);
+      LocalNotificationService.showFoodNotification(
+        id:         n.id.hashCode,
+        donorName:  n.donorName,
+        item:       n.item,
+        qty:        n.qty,
+        distanceKm: n.distanceKm,
+      );
+    }
+  });
+}
 
   Future<void> _saveNgoLocation() async {
     try {
