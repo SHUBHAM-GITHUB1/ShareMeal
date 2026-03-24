@@ -23,27 +23,18 @@ class AuthService {
     required String password,
     required String orgName,
     required String address,
-    required String role,     // 'Donor' or 'NGO'
+    required String role,
+    String phone = '',
   }) async {
     try {
-      // Step 1: Create the account in Firebase Auth
       final cred = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      // Step 2: Set their display name (shows up in Firebase console)
       await cred.user!.updateDisplayName(orgName);
-
-      // Step 3: Save their profile info in Firestore database
-      // Firebase Auth only stores email+password
-      // Everything else (name, role, address) goes in Firestore
-      await _saveUserToFirestore(cred.user!, orgName, address, role);
-
+      await _saveUserToFirestore(cred.user!, orgName, address, role, phone);
       return cred.user;
-
     } on FirebaseAuthException catch (e) {
-      // If anything goes wrong, convert the error code to a readable message
       throw _handleError(e);
     }
   }
@@ -103,6 +94,7 @@ class AuthService {
           result.user!.displayName ?? 'User',
           '',
           role,
+          '',
         );
         return {
           'email':   result.user!.email,
@@ -131,23 +123,28 @@ class AuthService {
   }
 
   // ── SIGN OUT ─────────────────────────────────────────────────────
-  Future<void> signOut() async {
-    await GoogleSignIn().signOut();   // sign out of Google too
-    await _auth.signOut();
+ Future<void> signOut() async {
+  try {
+    await GoogleSignIn().signOut();
+  } catch (_) {
+    // Google Sign-In not configured for web — safe to ignore
   }
+  await _auth.signOut();
+}
 
   // ── PRIVATE HELPERS ──────────────────────────────────────────────
 
   // Saves user info to Firestore 'users' collection
   Future<void> _saveUserToFirestore(
-    User user, String orgName, String address, String role,
+    User user, String orgName, String address, String role, String phone,
   ) async {
     await _db.collection('users').doc(user.uid).set({
       'uid':       user.uid,
       'email':     user.email,
       'orgName':   orgName,
       'address':   address,
-      'role':      role,             // 'Donor' or 'NGO'
+      'phone':     phone,
+      'role':      role,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
