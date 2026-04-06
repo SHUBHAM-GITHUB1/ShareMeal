@@ -7,6 +7,7 @@ import 'package:sharemeal/models/app_state.dart';
 import 'package:sharemeal/screens/auth_wrapper.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/services/local_notification_service.dart';
+import 'package:sharemeal/services/background_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

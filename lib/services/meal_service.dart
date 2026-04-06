@@ -71,7 +71,7 @@ class MealService {
       }
     }
 
-    // 3. Mark meal completed (do this first, separately — not in batch)
+    // 3. Mark meal completed
     await _db.collection('meals').doc(mealId).update({
       'status':      'completed',
       'completedAt': now,
@@ -109,6 +109,20 @@ class MealService {
         'locationAddress': locAddr,
         'completedAt':     now,
       });
+    }
+
+    // 6. Notify both parties of completion
+    if (donorId != null && donorId.isNotEmpty &&
+        ngoUid  != null && ngoUid.isNotEmpty) {
+      await NotificationService().notifyCompletion(
+        donorId:   donorId,
+        ngoUid:    ngoUid,
+        mealId:    mealId,
+        item:      item,
+        qty:       qty,
+        donorName: donorName,
+        ngoName:   ngoName,
+      );
     }
   }
 
@@ -247,11 +261,32 @@ class MealService {
   Future<void> claimMeal(String mealId) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) throw Exception('Not authenticated');
+
+    final mealDoc = await _db.collection('meals').doc(mealId).get();
+    if (!mealDoc.exists) throw Exception('Meal not found');
+    final d       = mealDoc.data()!;
+    final donorId = d['donorId'] as String? ?? '';
+    final item    = d['item']    as String? ?? '';
+    final qty     = d['qty']     as String? ?? '';
+
+    final ngoDoc  = await _db.collection('users').doc(uid).get();
+    final ngoName = (ngoDoc.data()?['orgName'] as String?) ?? 'An NGO';
+
     await _db.collection('meals').doc(mealId).update({
       'status':    'claimed',
       'claimedBy': uid,
       'claimedAt': FieldValue.serverTimestamp(),
     });
+
+    if (donorId.isNotEmpty) {
+      await NotificationService().notifyDonor(
+        donorId: donorId,
+        mealId:  mealId,
+        ngoName: ngoName,
+        item:    item,
+        qty:     qty,
+      );
+    }
   }
 
   // ── Donor deletes their own meal post ─────────────────────────────

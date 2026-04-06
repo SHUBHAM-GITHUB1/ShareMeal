@@ -13,6 +13,7 @@ import 'package:sharemeal/services/notification_service.dart';
 import 'package:sharemeal/services/local_notification_service.dart';
 import 'package:sharemeal/screens/pickup_map_screen.dart';
 import 'package:sharemeal/services/widgets/expiry_timer_widget.dart';
+import 'package:sharemeal/services/background_notification_service.dart';
 
 class NGODashboard extends StatefulWidget {
   const NGODashboard({super.key});
@@ -24,7 +25,7 @@ class _NGODashboardState extends State<NGODashboard>
     with SingleTickerProviderStateMixin {
   final _notifService = NotificationService();
   final Set<String> _seenIds = {};
-final DateTime _sessionStart = DateTime.now();
+  final Set<String> _seenCompleteIds = {};
   late final TabController _tabCtrl;
   Position? _myPosition;
 
@@ -34,6 +35,8 @@ final DateTime _sessionStart = DateTime.now();
     _tabCtrl = TabController(length: 2, vsync: this);
     _saveNgoLocation();
     _listenForNewNotifications();
+    _listenForCompletionNotifications();
+    BackgroundNotificationService.register();
   }
 
   @override
@@ -43,21 +46,39 @@ final DateTime _sessionStart = DateTime.now();
   }
 
   void _listenForNewNotifications() {
-  _notifService.streamMyNotifications().listen((notifications) {
-    for (final n in notifications) {
-      if (_seenIds.contains(n.id)) continue;
-      if (!n.time.isAfter(_sessionStart)) continue;
-      _seenIds.add(n.id);
-      LocalNotificationService.showFoodNotification(
-        id:         n.id.hashCode,
-        donorName:  n.donorName,
-        item:       n.item,
-        qty:        n.qty,
-        distanceKm: n.distanceKm,
-      );
-    }
-  });
-}
+    _notifService.streamMyNotifications().listen((notifications) {
+      for (final n in notifications) {
+        if (n.read) continue;
+        if (_seenIds.contains(n.id)) continue;
+        _seenIds.add(n.id);
+        LocalNotificationService.showFoodNotification(
+          id:         n.id.hashCode,
+          donorName:  n.donorName,
+          item:       n.item,
+          qty:        n.qty,
+          distanceKm: n.distanceKm,
+        );
+        _notifService.markRead(n.id);
+      }
+    });
+  }
+
+  void _listenForCompletionNotifications() {
+    _notifService.streamMyCompletionNotifications().listen((notifications) {
+      for (final n in notifications) {
+        if (n.read) continue;
+        if (_seenCompleteIds.contains(n.id)) continue;
+        _seenCompleteIds.add(n.id);
+        LocalNotificationService.showCompleteNotification(
+          id:          n.id.hashCode,
+          item:        n.item,
+          qty:         n.qty,
+          partnerName: n.partnerName,
+          isDonor:     n.isDonor,
+        );
+      }
+    });
+  }
 
   Future<void> _saveNgoLocation() async {
     try {

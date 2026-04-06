@@ -78,20 +78,23 @@ class NotificationService {
     if (count > 0) await batch.commit();
   }
 
-  // ── Stream of notifications for the current NGO ──────────────────
+  // ── Stream of notifications for the current NGO (unread only) ─────
   Stream<List<MealNotification>> streamMyNotifications() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return const Stream.empty();
     return _db
         .collection('notifications')
         .where('toUid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(30)
+        .where('read', isEqualTo: false)
         .snapshots()
-        .map((s) => s.docs.map(MealNotification.fromDoc).toList());
+        .map((s) {
+          final list = s.docs.map(MealNotification.fromDoc).toList();
+          list.sort((a, b) => b.time.compareTo(a.time));
+          return list;
+        });
   }
 
-  // ── Mark a single notification as read ──────────────────────────
+  // ── Mark a single NGO notification as read ────────────────────
   Future<void> markRead(String notifId) =>
       _db.collection('notifications').doc(notifId).update({'read': true});
 
@@ -102,6 +105,95 @@ class NotificationService {
       batch.update(_db.collection('notifications').doc(id), {'read': true});
     }
     await batch.commit();
+  }
+
+  // ── Called when an NGO claims a meal — notifies the donor ────────
+  Future<void> notifyDonor({
+    required String donorId,
+    required String mealId,
+    required String ngoName,
+    required String item,
+    required String qty,
+  }) async {
+    await _db.collection('donor_notifications').add({
+      'toUid':    donorId,
+      'mealId':   mealId,
+      'ngoName':  ngoName,
+      'item':     item,
+      'qty':      qty,
+      'read':     false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Stream of donor notifications (unread only) ─────────────────
+  Stream<List<DonorNotification>> streamMyDonorNotifications() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('donor_notifications')
+        .where('toUid', isEqualTo: uid)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .map((s) {
+          final list = s.docs.map(DonorNotification.fromDoc).toList();
+          list.sort((a, b) => b.time.compareTo(a.time));
+          return list;
+        });
+  }
+
+  // ── Called when donor confirms pickup — notifies both donor + NGO ───
+  Future<void> notifyCompletion({
+    required String donorId,
+    required String ngoUid,
+    required String mealId,
+    required String item,
+    required String qty,
+    required String donorName,
+    required String ngoName,
+  }) async {
+    final batch = _db.batch();
+    // Notify donor
+    final donorRef = _db.collection('completion_notifications').doc();
+    batch.set(donorRef, {
+      'toUid':       donorId,
+      'mealId':      mealId,
+      'item':        item,
+      'qty':         qty,
+      'partnerName': ngoName,
+      'isDonor':     true,
+      'read':        false,
+      'createdAt':   FieldValue.serverTimestamp(),
+    });
+    // Notify NGO
+    final ngoRef = _db.collection('completion_notifications').doc();
+    batch.set(ngoRef, {
+      'toUid':       ngoUid,
+      'mealId':      mealId,
+      'item':        item,
+      'qty':         qty,
+      'partnerName': donorName,
+      'isDonor':     false,
+      'read':        false,
+      'createdAt':   FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  // ── Stream completion notifications (unread only) ────────────────
+  Stream<List<CompletionNotification>> streamMyCompletionNotifications() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return _db
+        .collection('completion_notifications')
+        .where('toUid', isEqualTo: uid)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .map((s) {
+          final list = s.docs.map(CompletionNotification.fromDoc).toList();
+          list.sort((a, b) => b.time.compareTo(a.time));
+          return list;
+        });
   }
 }
 
@@ -148,8 +240,79 @@ class MealNotification {
       donorLat:        (d['donorLat']   as num?)?.toDouble(),
       donorLng:        (d['donorLng']   as num?)?.toDouble(),
       read:            d['read']             as bool?   ?? false,
-      time:            (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      expiryTime:      (d['expiryTime'] as Timestamp?)?.toDate(),  // ⏰ NEW
+      time:            (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
+      expiryTime:      (d['expiryTime'] as Timestamp?)?.toDate(),
+    );
+  }
+}
+
+// ── Donor notification model ──────────────────────────────────────
+class DonorNotification {
+  final String id;
+  final String mealId;
+  final String ngoName;
+  final String item;
+  final String qty;
+  final bool read;
+  final DateTime time;
+
+  const DonorNotification({
+    required this.id,
+    required this.mealId,
+    required this.ngoName,
+    required this.item,
+    required this.qty,
+    required this.read,
+    required this.time,
+  });
+
+  factory DonorNotification.fromDoc(DocumentSnapshot doc) {
+    final d = doc.data() as Map<String, dynamic>;
+    return DonorNotification(
+      id:       doc.id,
+      mealId:   d['mealId']  as String? ?? '',
+      ngoName:  d['ngoName'] as String? ?? '',
+      item:     d['item']    as String? ?? '',
+      qty:      d['qty']     as String? ?? '',
+      read:     d['read']    as bool?   ?? false,
+      time:     (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+}
+
+// ── Completion notification model ────────────────────────────────
+class CompletionNotification {
+  final String id;
+  final String mealId;
+  final String item;
+  final String qty;
+  final String partnerName;
+  final bool   isDonor;
+  final bool   read;
+  final DateTime time;
+
+  const CompletionNotification({
+    required this.id,
+    required this.mealId,
+    required this.item,
+    required this.qty,
+    required this.partnerName,
+    required this.isDonor,
+    required this.read,
+    required this.time,
+  });
+
+  factory CompletionNotification.fromDoc(DocumentSnapshot doc) {
+    final d = doc.data() as Map<String, dynamic>;
+    return CompletionNotification(
+      id:          doc.id,
+      mealId:      d['mealId']      as String? ?? '',
+      item:        d['item']        as String? ?? '',
+      qty:         d['qty']         as String? ?? '',
+      partnerName: d['partnerName'] as String? ?? '',
+      isDonor:     d['isDonor']     as bool?   ?? true,
+      read:        d['read']        as bool?   ?? false,
+      time:        (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

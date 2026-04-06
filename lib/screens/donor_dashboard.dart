@@ -14,6 +14,9 @@ import 'package:sharemeal/services/image_service.dart';
 import 'package:sharemeal/services/ai_food_service.dart';
 import 'package:sharemeal/services/widgets/expiry_timer_widget.dart';
 import 'package:sharemeal/services/expiry_service.dart';
+import 'package:sharemeal/services/notification_service.dart';
+import 'package:sharemeal/services/local_notification_service.dart';
+import 'package:sharemeal/services/background_notification_service.dart';
 
 
 class DonorDashboard extends StatefulWidget {
@@ -34,12 +37,18 @@ class _DonorDashboardState extends State<DonorDashboard>
   PickedLocation? _pickedLocation;
   DateTime? _selectedExpiryTime;
   late final TabController _tabCtrl;
+  final _notifService = NotificationService();
+  final Set<String> _seenClaimIds = {};
+  final Set<String> _seenCompleteIds = {};
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     _selectedExpiryTime = null;
+    _listenForClaimNotifications();
+    _listenForCompletionNotifications();
+    BackgroundNotificationService.register();
   }
 
   @override
@@ -48,6 +57,39 @@ class _DonorDashboardState extends State<DonorDashboard>
     _qtyCtrl.dispose();
     _tabCtrl.dispose();
     super.dispose();
+  }
+
+  void _listenForClaimNotifications() {
+    _notifService.streamMyDonorNotifications().listen((notifications) {
+      for (final n in notifications) {
+        if (n.read) continue;
+        if (_seenClaimIds.contains(n.id)) continue;
+        _seenClaimIds.add(n.id);
+        LocalNotificationService.showClaimNotification(
+          id:      n.id.hashCode,
+          ngoName: n.ngoName,
+          item:    n.item,
+          qty:     n.qty,
+        );
+      }
+    });
+  }
+
+  void _listenForCompletionNotifications() {
+    _notifService.streamMyCompletionNotifications().listen((notifications) {
+      for (final n in notifications) {
+        if (n.read) continue;
+        if (_seenCompleteIds.contains(n.id)) continue;
+        _seenCompleteIds.add(n.id);
+        LocalNotificationService.showCompleteNotification(
+          id:          n.id.hashCode,
+          item:        n.item,
+          qty:         n.qty,
+          partnerName: n.partnerName,
+          isDonor:     n.isDonor,
+        );
+      }
+    });
   }
 
   String _fmt(String t) =>
@@ -395,18 +437,19 @@ class _DonorDashboardState extends State<DonorDashboard>
                                 locationAddress: _pickedLocation?.address,
                                 expiryTime: _selectedExpiryTime,
                               );
-                              if (!context.mounted) return;
-                              Navigator.pop(sheetCtx);
                               _itemCtrl.clear(); _qtyCtrl.clear();
-                              setState(() { 
-                                _pickedImageB64 = null; 
+                              setState(() {
+                                _isPosting      = false;
+                                _pickedImageB64 = null;
                                 _pickedLocation = null;
                                 _selectedExpiryTime = null;
                               });
+                              if (!context.mounted) return;
+                              Navigator.pop(sheetCtx);
                               _snack(context, '✅ Food posted successfully!', AppColors.sage);
                             } catch (e) {
-                              if (!context.mounted) return;
                               setModal(() => _isPosting = false);
+                              if (!context.mounted) return;
                               _snack(context, 'Error: $e', AppColors.terr);
                             }
                           }

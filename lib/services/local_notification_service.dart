@@ -4,36 +4,39 @@ class LocalNotificationService {
   static final _plugin      = FlutterLocalNotificationsPlugin();
   static bool  _initialized = false;
 
-  // Android channel must be created before any notification is shown.
-  // If the channel doesn't exist, Android silently drops the notification.
-  static const _channel = AndroidNotificationChannel(
-    'sharemeal_food',          // id  — must match what showFoodNotification uses
-    'Food Donations',          // name shown in system settings
+  static const _foodChannel = AndroidNotificationChannel(
+    'sharemeal_food', 'Food Donations',
     description:    'Nearby food donation alerts',
-    importance:      Importance.high,
+    importance:      Importance.max,
     playSound:       true,
     enableVibration: true,
   );
 
+  static const _claimChannel = AndroidNotificationChannel(
+    'sharemeal_claim', 'Claim Alerts',
+    description: 'Alerts when an NGO claims your donation',
+    importance:  Importance.max,
+    playSound:   true,
+  );
+
+  static const _completeChannel = AndroidNotificationChannel(
+    'sharemeal_complete', 'Donation Complete',
+    description: 'Alerts when a donation is fully completed',
+    importance:  Importance.max,
+    playSound:   true,
+  );
+
   static Future<void> init() async {
     if (_initialized) return;
-
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android  = AndroidInitializationSettings('@mipmap/ic_launcher');
     const settings = InitializationSettings(android: android);
     await _plugin.initialize(settings);
-
-    // Create the channel on Android (safe to call repeatedly — no-op if exists).
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_channel);
-
-    // Request POST_NOTIFICATIONS permission (Android 13+).
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-
+    final impl = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await impl?.createNotificationChannel(_foodChannel);
+    await impl?.createNotificationChannel(_claimChannel);
+    await impl?.createNotificationChannel(_completeChannel);
+    await impl?.requestNotificationsPermission();
     _initialized = true;
   }
 
@@ -44,26 +47,73 @@ class LocalNotificationService {
     required String qty,
     required double distanceKm,
   }) async {
-    final details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _channel.id,
-        _channel.name,
-        channelDescription: _channel.description,
-        importance:         Importance.high,
-        priority:           Priority.high,
-        icon:               '@mipmap/ic_launcher',
-        // Show full text even if it's long
-        styleInformation: BigTextStyleInformation(
-          '$donorName is donating $qty of $item',
-        ),
-      ),
-    );
-
+    await init();
+    final body = '$donorName is donating $qty of $item';
     await _plugin.show(
       id,
       '🍽️ Food available nearby (${distanceKm.toStringAsFixed(1)} km)',
-      '$donorName is donating $qty of $item',
-      details,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _foodChannel.id, _foodChannel.name,
+          channelDescription: _foodChannel.description,
+          importance: Importance.max, priority: Priority.max,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: BigTextStyleInformation(body),
+        ),
+      ),
+    );
+  }
+
+  static Future<void> showClaimNotification({
+    required int    id,
+    required String ngoName,
+    required String item,
+    required String qty,
+  }) async {
+    await init();
+    final body = '$ngoName will collect $qty of $item';
+    await _plugin.show(
+      id,
+      '✅ Your donation was claimed!',
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _claimChannel.id, _claimChannel.name,
+          channelDescription: _claimChannel.description,
+          importance: Importance.max, priority: Priority.max,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: BigTextStyleInformation(body),
+        ),
+      ),
+    );
+  }
+
+  static Future<void> showCompleteNotification({
+    required int    id,
+    required String item,
+    required String qty,
+    required String partnerName,
+    required bool   isDonor,
+  }) async {
+    await init();
+    final title = isDonor ? '🎉 Donation complete!' : '🎉 Pickup confirmed!';
+    final body  = isDonor
+        ? '$partnerName collected $qty of $item. Thank you for sharing!'
+        : 'Donor confirmed $qty of $item has been handed over. Great work!';
+    await _plugin.show(
+      id,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _completeChannel.id, _completeChannel.name,
+          channelDescription: _completeChannel.description,
+          importance: Importance.max, priority: Priority.max,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: BigTextStyleInformation(body),
+        ),
+      ),
     );
   }
 }
