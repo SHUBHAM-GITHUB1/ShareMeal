@@ -62,7 +62,6 @@ class _DonorDashboardState extends State<DonorDashboard>
   void _listenForClaimNotifications() {
     _notifService.streamMyDonorNotifications().listen((notifications) {
       for (final n in notifications) {
-        if (n.read) continue;
         if (_seenClaimIds.contains(n.id)) continue;
         _seenClaimIds.add(n.id);
         LocalNotificationService.showClaimNotification(
@@ -71,6 +70,7 @@ class _DonorDashboardState extends State<DonorDashboard>
           item:    n.item,
           qty:     n.qty,
         );
+        _notifService.markDonorNotifRead(n.id);
       }
     });
   }
@@ -78,7 +78,6 @@ class _DonorDashboardState extends State<DonorDashboard>
   void _listenForCompletionNotifications() {
     _notifService.streamMyCompletionNotifications().listen((notifications) {
       for (final n in notifications) {
-        if (n.read) continue;
         if (_seenCompleteIds.contains(n.id)) continue;
         _seenCompleteIds.add(n.id);
         LocalNotificationService.showCompleteNotification(
@@ -88,6 +87,7 @@ class _DonorDashboardState extends State<DonorDashboard>
           partnerName: n.partnerName,
           isDonor:     n.isDonor,
         );
+        _notifService.markCompletionRead(n.id);
       }
     });
   }

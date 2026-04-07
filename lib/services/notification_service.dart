@@ -95,10 +95,16 @@ class NotificationService {
   }
 
   // ── Mark a single NGO notification as read ────────────────────
-  Future<void> markRead(String notifId) =>
-      _db.collection('notifications').doc(notifId).update({'read': true});
+  Future<void> markRead(String id) =>
+      _db.collection('notifications').doc(id).update({'read': true});
 
-  // ── Mark all as read ─────────────────────────────────────────────
+  Future<void> markDonorNotifRead(String id) =>
+      _db.collection('donor_notifications').doc(id).update({'read': true});
+
+  Future<void> markCompletionRead(String id) =>
+      _db.collection('completion_notifications').doc(id).update({'read': true});
+
+  // ── Mark all NGO notifications as read ─────────────────────────
   Future<void> markAllRead(List<String> ids) async {
     final batch = _db.batch();
     for (final id in ids) {

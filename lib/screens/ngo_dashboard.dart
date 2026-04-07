@@ -48,7 +48,6 @@ class _NGODashboardState extends State<NGODashboard>
   void _listenForNewNotifications() {
     _notifService.streamMyNotifications().listen((notifications) {
       for (final n in notifications) {
-        if (n.read) continue;
         if (_seenIds.contains(n.id)) continue;
         _seenIds.add(n.id);
         LocalNotificationService.showFoodNotification(
@@ -66,7 +65,6 @@ class _NGODashboardState extends State<NGODashboard>
   void _listenForCompletionNotifications() {
     _notifService.streamMyCompletionNotifications().listen((notifications) {
       for (final n in notifications) {
-        if (n.read) continue;
         if (_seenCompleteIds.contains(n.id)) continue;
         _seenCompleteIds.add(n.id);
         LocalNotificationService.showCompleteNotification(
@@ -76,6 +74,7 @@ class _NGODashboardState extends State<NGODashboard>
           partnerName: n.partnerName,
           isDonor:     n.isDonor,
         );
+        _notifService.markCompletionRead(n.id);
       }
     });
   }
