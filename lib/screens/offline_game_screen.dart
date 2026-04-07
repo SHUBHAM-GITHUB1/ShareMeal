@@ -40,8 +40,13 @@ class _OfflineWrapperState extends State<OfflineWrapper> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _isOffline ? const FlappyBirdGame() : widget.child;
+  Widget build(BuildContext context) {
+    if (!_isOffline) return widget.child;
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: const FlappyBirdGame(),
+    );
+  }
 }
 
 // ─── Game Constants ───────────────────────────────────────────────────────────
@@ -52,6 +57,7 @@ const double _gapH       = 175.0;  // vertical gap between pipes
 const double _gravity    = 0.55;
 const double _jumpForce  = -10.5;
 const double _pipeSpeed  = 3.2;
+const double _groundH    = 60.0;
 
 // ─── Flappy Bird Game ─────────────────────────────────────────────────────────
 class FlappyBirdGame extends StatefulWidget {
@@ -84,6 +90,9 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
   // Wing flap animation
   int _wingFrame = 0;
   int _wingTick  = 0;
+
+  // Random food character — changes every round
+  _FoodType _foodType = _FoodType.values[DateTime.now().millisecondsSinceEpoch % _FoodType.values.length];
 
   @override
   void initState() {
@@ -122,19 +131,19 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
       // Spawn new pipe
       if (_pipes.isEmpty || _pipes.last['x']! < _w - 260) {
         final minGapTop = 80.0;
-        final maxGapTop = _h - _gapH - 80;
+        final maxGapTop = _h - _groundH - _gapH - 80;
         _pipes.add({
           'x':      _w + _pipeW,
           'gapTop': minGapTop + _rng.nextDouble() * (maxGapTop - minGapTop),
-          'scored': 0,
+          'scored': 0.0,
         });
       }
 
       // Score: bird passed a pipe
       final birdPx = _birdX * _w;
       for (final p in _pipes) {
-        if (p['scored'] == 0 && p['x']! + _pipeW < birdPx) {
-          p['scored'] = 1;
+        if (p['scored'] == 0.0 && p['x']! + _pipeW < birdPx) {
+          p['scored'] = 1.0;
           _score++;
           if (_score > _best) _best = _score;
           HapticFeedback.lightImpact();
@@ -151,8 +160,8 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
     final birdPy  = _h / 2 + _birdY;
     final birdR   = _birdSize / 2 - 4; // slight forgiveness
 
-    // Floor / ceiling
-    if (birdPy + birdR > _h || birdPy - birdR < 0) {
+    // Floor (account for ground) / ceiling
+    if (birdPy + birdR > _h - _groundH || birdPy - birdR < 0) {
       _die();
       return;
     }
@@ -193,7 +202,10 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
   }
 
   void _reset() {
+    // Pick a different food than the current one
+    final types = _FoodType.values.where((t) => t != _foodType).toList();
     setState(() {
+      _foodType = types[Random().nextInt(types.length)];
       _birdY    = 0;
       _velocity = 0;
       _rotation = 0;
@@ -203,6 +215,17 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
       _pipes.clear();
       _wingFrame = 0;
     });
+  }
+
+  String get _foodName {
+    switch (_foodType) {
+      case _FoodType.burger:   return 'Burger';
+      case _FoodType.pizza:    return 'Pizza';
+      case _FoodType.donut:    return 'Donut';
+      case _FoodType.icecream: return 'Ice Cream';
+      case _FoodType.taco:     return 'Taco';
+      case _FoodType.sushi:    return 'Sushi';
+    }
   }
 
   @override
@@ -253,7 +276,7 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
             ..._pipes.map((p) => _buildPipe(p)),
 
             // Bird
-            _buildBird(),
+            _buildBird(_foodType),
 
             // HUD
             _buildHUD(),
@@ -301,21 +324,19 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
       // Bottom pipe
       Positioned(
         left: x, top: gapTop + _gapH,
-        child: _Pipe(width: _pipeW, height: _h - gapTop - _gapH, isTop: false),
+        child: _Pipe(width: _pipeW, height: _h - _groundH - gapTop - _gapH, isTop: false),
       ),
     ]);
   }
 
-  Widget _buildBird() {
+  Widget _buildBird(_FoodType foodType) {
     final birdPx = _birdX * _w - _birdSize / 2;
     final birdPy = _h / 2 + _birdY - _birdSize / 2;
-
     return Positioned(
-      left: birdPx,
-      top:  birdPy,
+      left: birdPx, top: birdPy,
       child: Transform.rotate(
         angle: _rotation * pi / 180,
-        child: _BirdWidget(frame: _wingFrame, dead: _dead),
+        child: _FoodBird(foodType: foodType, frame: _wingFrame, dead: _dead),
       ),
     );
   }
@@ -371,37 +392,53 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
             const SizedBox(height: 20),
 
             if (_dead) ...[
-              // Game over
-              const Text('GAME OVER', style: TextStyle(
-                fontSize: 38, fontWeight: FontWeight.w900,
-                color: Colors.white,
-                shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
-              )),
-              const SizedBox(height: 8),
-              Text('Score: $_score', style: const TextStyle(
-                fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w600,
+              const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.delete_outline_rounded, color: AppColors.terr, size: 36),
+                SizedBox(width: 8),
+                Text('FOOD WASTED', style: TextStyle(
+                  fontSize: 38, fontWeight: FontWeight.w900,
+                  color: AppColors.terr,
+                  shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
+                )),
+              ]),
+              const SizedBox(height: 12),
+              Text('$_foodName saved: $_score', style: const TextStyle(
+                fontSize: 20, color: Colors.white, fontWeight: FontWeight.w700,
               )),
               if (_score == _best && _score > 0) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 const Text('🏆 New Best!', style: TextStyle(
-                  fontSize: 16, color: AppColors.amber, fontWeight: FontWeight.w700,
+                  fontSize: 18, color: AppColors.amber, fontWeight: FontWeight.w700,
                 )),
               ],
+              const SizedBox(height: 6),
+              Text(
+                'Don\'t let food go to waste!',
+                style: TextStyle(fontSize: 14, color: Colors.white.withAlpha(180), fontStyle: FontStyle.italic),
+              ),
               const SizedBox(height: 28),
             ] else ...[
-              // Title
-              const Text('Flappy\nShareMeal', textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 40, fontWeight: FontWeight.w900,
-                  color: Colors.white, height: 1.1,
-                  shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
+              // Food drawing big on start screen
+              SizedBox(
+                width: 90, height: 90,
+                child: CustomPaint(
+                  painter: _FoodPainter(foodType: _foodType, dead: false),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text('While you wait for connection...', style: TextStyle(
-                fontSize: 14, color: Colors.white.withAlpha(180),
+              const SizedBox(height: 10),
+              Text(
+                'Save the $_foodName!',
+                style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text('Help rescue food while offline', style: TextStyle(
+                fontSize: 14, color: Colors.white.withAlpha(180), fontWeight: FontWeight.w500,
               )),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
             ],
 
             // Tap to play button
@@ -427,9 +464,18 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Text('Tap anywhere or press the button to flap',
-              style: TextStyle(fontSize: 12, color: Colors.white.withAlpha(120)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(60),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withAlpha(40), width: 1),
+              ),
+              child: Text(
+                '💡 Tap anywhere to flap and avoid obstacles',
+                style: TextStyle(fontSize: 12, color: Colors.white.withAlpha(160), fontWeight: FontWeight.w500),
+              ),
             ),
           ]),
         ),
@@ -438,82 +484,267 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
   }
 }
 
-// ─── Bird Widget ──────────────────────────────────────────────────────────────
-class _BirdWidget extends StatelessWidget {
+// ─── Food Type Enum ───────────────────────────────────────────────────────────
+enum _FoodType { burger, pizza, donut, icecream, taco, sushi }
+
+// ─── Food Bird Widget ─────────────────────────────────────────────────────────
+class _FoodBird extends StatelessWidget {
+  final _FoodType foodType;
   final int frame;
   final bool dead;
-  const _BirdWidget({required this.frame, required this.dead});
+  const _FoodBird({required this.foodType, required this.frame, required this.dead});
 
   @override
   Widget build(BuildContext context) {
-    // Wing offsets per frame: down, mid, up
-    const wingOffsets = [-6.0, 0.0, 6.0];
-    final wingY = dead ? 4.0 : wingOffsets[frame];
+    const scales = [0.88, 1.0, 1.1];
+    final scale  = dead ? 0.85 : scales[frame];
 
     return SizedBox(
-      width: _birdSize, height: _birdSize,
-      child: CustomPaint(painter: _BirdPainter(wingY: wingY, dead: dead)),
+      width: _birdSize + 10,
+      height: _birdSize + 10,
+      child: Stack(alignment: Alignment.center, children: [
+        // Glow
+        Container(
+          width: _birdSize + 6, height: _birdSize + 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(
+              color: dead ? Colors.red.withAlpha(120) : Colors.white.withAlpha(50),
+              blurRadius: 14, spreadRadius: 2,
+            )],
+          ),
+        ),
+        // Food drawing
+        Transform.scale(
+          scale: scale,
+          child: SizedBox(
+            width: _birdSize, height: _birdSize,
+            child: CustomPaint(
+              painter: _FoodPainter(foodType: foodType, dead: dead),
+            ),
+          ),
+        ),
+        // Speed lines
+        if (!dead)
+          Positioned(
+            left: 0,
+            child: CustomPaint(
+              size: Size(14, _birdSize),
+              painter: _SpeedLinePainter(frame: frame),
+            ),
+          ),
+      ]),
     );
   }
 }
 
-class _BirdPainter extends CustomPainter {
-  final double wingY;
+// ─── Food Painter ─────────────────────────────────────────────────────────────
+class _FoodPainter extends CustomPainter {
+  final _FoodType foodType;
   final bool dead;
-  const _BirdPainter({required this.wingY, required this.dead});
+  const _FoodPainter({required this.foodType, required this.dead});
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    if (dead) { _drawExplosion(canvas, s); return; }
+    switch (foodType) {
+      case _FoodType.burger:   _drawBurger(canvas, s);  break;
+      case _FoodType.pizza:    _drawPizza(canvas, s);   break;
+      case _FoodType.donut:    _drawDonut(canvas, s);   break;
+      case _FoodType.icecream: _drawIceCream(canvas, s);break;
+      case _FoodType.taco:     _drawTaco(canvas, s);    break;
+      case _FoodType.sushi:    _drawSushi(canvas, s);   break;
+    }
+  }
+
+  void _drawBurger(Canvas c, Size s) {
+    final cx = s.width / 2; final cy = s.height / 2;
+    // bottom bun
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy + 10), width: s.width * 0.9, height: s.height * 0.28),
+        Paint()..color = const Color(0xFFC8860A));
+    // patty
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy + 3), width: s.width * 0.85, height: s.height * 0.22),
+        Paint()..color = const Color(0xFF7B3F00));
+    // cheese
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy - 2), width: s.width * 0.88, height: s.height * 0.18),
+        Paint()..color = const Color(0xFFFFC107));
+    // lettuce
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy - 7), width: s.width * 0.9, height: s.height * 0.16),
+        Paint()..color = const Color(0xFF4CAF50));
+    // top bun
+    final bunPath = Path()
+      ..addArc(Rect.fromCenter(center: Offset(cx, cy - 10), width: s.width * 0.9, height: s.height * 0.7), pi, pi);
+    c.drawPath(bunPath, Paint()..color = const Color(0xFFE8A020));
+    // sesame seeds
+    final seed = Paint()..color = Colors.white.withAlpha(200);
+    c.drawCircle(Offset(cx - 6, cy - 16), 2, seed);
+    c.drawCircle(Offset(cx + 4, cy - 18), 2, seed);
+    c.drawCircle(Offset(cx + 10, cy - 14), 1.5, seed);
+  }
+
+  void _drawPizza(Canvas c, Size s) {
+    final cx = s.width / 2; final cy = s.height / 2;
+    final r = s.width * 0.46;
+    // crust
+    c.drawCircle(Offset(cx, cy), r, Paint()..color = const Color(0xFFD4A017));
+    // sauce
+    c.drawCircle(Offset(cx, cy), r * 0.82, Paint()..color = const Color(0xFFCC3300));
+    // cheese
+    c.drawCircle(Offset(cx, cy), r * 0.70, Paint()..color = const Color(0xFFFFF176));
+    // pepperoni
+    final pep = Paint()..color = const Color(0xFFB71C1C);
+    c.drawCircle(Offset(cx - 6, cy - 5), 5, pep);
+    c.drawCircle(Offset(cx + 7, cy + 4), 4, pep);
+    c.drawCircle(Offset(cx, cy + 8), 4, pep);
+    // slice lines
+    final line = Paint()..color = const Color(0xFFD4A017)..strokeWidth = 1.5;
+    c.drawLine(Offset(cx, cy - r), Offset(cx, cy + r), line);
+    c.drawLine(Offset(cx - r * 0.87, cy - r * 0.5), Offset(cx + r * 0.87, cy + r * 0.5), line);
+    c.drawLine(Offset(cx + r * 0.87, cy - r * 0.5), Offset(cx - r * 0.87, cy + r * 0.5), line);
+  }
+
+  void _drawDonut(Canvas c, Size s) {
+    final cx = s.width / 2; final cy = s.height / 2;
+    final r = s.width * 0.44;
+    // donut body
+    c.drawCircle(Offset(cx, cy), r, Paint()..color = const Color(0xFFD4A017));
+    // icing
+    final icingPath = Path()..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: r * 0.95));
+    c.drawPath(icingPath, Paint()..color = const Color(0xFFFF69B4)..style = PaintingStyle.stroke..strokeWidth = r * 0.45);
+    // hole
+    c.drawCircle(Offset(cx, cy), r * 0.32, Paint()..color = const Color(0xFF1A1A2E));
+    // sprinkles
+    final colors = [Colors.red, Colors.blue, Colors.yellow, Colors.green, Colors.purple];
+    final rng = Random(7);
+    for (int i = 0; i < 8; i++) {
+      final angle = rng.nextDouble() * 2 * pi;
+      final dist  = r * (0.5 + rng.nextDouble() * 0.35);
+      final sx = cx + cos(angle) * dist;
+      final sy = cy + sin(angle) * dist;
+      c.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(sx, sy), width: 6, height: 2.5), const Radius.circular(2)),
+        Paint()..color = colors[i % colors.length],
+      );
+    }
+  }
+
+  void _drawIceCream(Canvas c, Size s) {
+    final cx = s.width / 2;
+    // cone
+    final conePath = Path()
+      ..moveTo(cx - s.width * 0.28, s.height * 0.52)
+      ..lineTo(cx + s.width * 0.28, s.height * 0.52)
+      ..lineTo(cx, s.height * 0.96)
+      ..close();
+    c.drawPath(conePath, Paint()..color = const Color(0xFFD4A017));
+    // cone lines
+    final cl = Paint()..color = const Color(0xFFB8860B)..strokeWidth = 1;
+    c.drawLine(Offset(cx, s.height * 0.96), Offset(cx - s.width * 0.1, s.height * 0.52), cl);
+    c.drawLine(Offset(cx, s.height * 0.96), Offset(cx + s.width * 0.1, s.height * 0.52), cl);
+    // scoop 1 (bottom)
+    c.drawCircle(Offset(cx, s.height * 0.42), s.width * 0.28,
+        Paint()..color = const Color(0xFFFFB6C1));
+    // scoop 2 (top)
+    c.drawCircle(Offset(cx, s.height * 0.22), s.width * 0.24,
+        Paint()..color = const Color(0xFFA5D6A7));
+    // cherry
+    c.drawCircle(Offset(cx, s.height * 0.06), s.width * 0.1,
+        Paint()..color = const Color(0xFFE53935));
+    // cherry stem
+    c.drawLine(Offset(cx, s.height * 0.06), Offset(cx + 4, s.height * 0.0),
+        Paint()..color = const Color(0xFF4CAF50)..strokeWidth = 1.5);
+  }
+
+  void _drawTaco(Canvas c, Size s) {
+    final cx = s.width / 2; final cy = s.height / 2;
+    // shell
+    final shell = Path()
+      ..moveTo(cx - s.width * 0.46, cy + s.height * 0.2)
+      ..quadraticBezierTo(cx, cy - s.height * 0.5, cx + s.width * 0.46, cy + s.height * 0.2)
+      ..quadraticBezierTo(cx, cy + s.height * 0.35, cx - s.width * 0.46, cy + s.height * 0.2)
+      ..close();
+    c.drawPath(shell, Paint()..color = const Color(0xFFD4A017));
+    // lettuce
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy + 4), width: s.width * 0.7, height: s.height * 0.22),
+        Paint()..color = const Color(0xFF66BB6A));
+    // meat
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy + 2), width: s.width * 0.55, height: s.height * 0.16),
+        Paint()..color = const Color(0xFF7B3F00));
+    // cheese shreds
+    final ch = Paint()..color = const Color(0xFFFFC107)..strokeWidth = 2;
+    for (int i = -2; i <= 2; i++) {
+      c.drawLine(Offset(cx + i * 6.0, cy - 4), Offset(cx + i * 6.0 + 3, cy + 4), ch);
+    }
+    // tomato
+    c.drawCircle(Offset(cx - 8, cy - 2), 4, Paint()..color = const Color(0xFFEF5350));
+    c.drawCircle(Offset(cx + 8, cy - 2), 4, Paint()..color = const Color(0xFFEF5350));
+  }
+
+  void _drawSushi(Canvas c, Size s) {
+    final cx = s.width / 2; final cy = s.height / 2;
+    // rice base
+    c.drawOval(Rect.fromCenter(center: Offset(cx, cy + 4), width: s.width * 0.82, height: s.height * 0.52),
+        Paint()..color = Colors.white);
+    // nori band
+    c.drawRect(
+      Rect.fromCenter(center: Offset(cx, cy + 4), width: s.width * 0.82, height: s.height * 0.18),
+      Paint()..color = const Color(0xFF1B2A1B),
+    );
+    // salmon topping
+    final salmonPath = Path()
+      ..addOval(Rect.fromCenter(center: Offset(cx, cy - 4), width: s.width * 0.7, height: s.height * 0.36));
+    c.drawPath(salmonPath, Paint()..color = const Color(0xFFFF8A65));
+    // salmon detail lines
+    final sl = Paint()..color = const Color(0xFFFF7043)..strokeWidth = 1.2;
+    c.drawLine(Offset(cx - 10, cy - 8), Offset(cx + 10, cy), sl);
+    c.drawLine(Offset(cx - 8, cy - 2), Offset(cx + 8, cy + 4), sl);
+    // wasabi dot
+    c.drawCircle(Offset(cx + 12, cy - 8), 4, Paint()..color = const Color(0xFF66BB6A));
+  }
+
+  void _drawExplosion(Canvas c, Size s) {
+    final cx = s.width / 2; final cy = s.height / 2;
+    final rng = Random(3);
+    // burst rays
+    final ray = Paint()..color = const Color(0xFFFFD600)..strokeWidth = 3..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 8; i++) {
+      final angle = i * pi / 4;
+      c.drawLine(
+        Offset(cx + cos(angle) * 6, cy + sin(angle) * 6),
+        Offset(cx + cos(angle) * (14 + rng.nextDouble() * 6), cy + sin(angle) * (14 + rng.nextDouble() * 6)),
+        ray,
+      );
+    }
+    // center circle
+    c.drawCircle(Offset(cx, cy), 10, Paint()..color = const Color(0xFFFF6D00));
+    c.drawCircle(Offset(cx, cy), 6,  Paint()..color = const Color(0xFFFFD600));
+    c.drawCircle(Offset(cx, cy), 3,  Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(_FoodPainter old) => old.dead != dead || old.foodType != foodType;
+}
+
+// ─── Speed Line Painter ───────────────────────────────────────────────────────
+class _SpeedLinePainter extends CustomPainter {
+  final int frame;
+  const _SpeedLinePainter({required this.frame});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    // Body
-    final bodyPaint = Paint()..color = dead ? const Color(0xFFE07856) : const Color(0xFFFBD000);
-    canvas.drawCircle(Offset(cx, cy), size.width * 0.42, bodyPaint);
-
-    // Wing
-    final wingPaint = Paint()..color = dead ? const Color(0xFFB85A3A) : const Color(0xFFF5A623);
-    final wingPath = Path()
-      ..moveTo(cx - 4, cy + wingY)
-      ..quadraticBezierTo(cx - 18, cy + wingY + 8, cx - 14, cy + wingY + 16)
-      ..quadraticBezierTo(cx - 4, cy + wingY + 10, cx + 2, cy + wingY + 4)
-      ..close();
-    canvas.drawPath(wingPath, wingPaint);
-
-    // Eye white
-    canvas.drawCircle(Offset(cx + 8, cy - 4), 7, Paint()..color = Colors.white);
-    // Pupil
-    canvas.drawCircle(
-      Offset(cx + 10, cy - 3),
-      3.5,
-      Paint()..color = dead ? Colors.red.shade900 : Colors.black87,
-    );
-    // Eye shine
-    canvas.drawCircle(Offset(cx + 11, cy - 5), 1.2, Paint()..color = Colors.white);
-
-    // Beak
-    final beakPaint = Paint()..color = const Color(0xFFFF8C00);
-    final beakPath = Path()
-      ..moveTo(cx + 14, cy + 1)
-      ..lineTo(cx + 22, cy - 2)
-      ..lineTo(cx + 22, cy + 5)
-      ..close();
-    canvas.drawPath(beakPath, beakPaint);
-
-    // X eyes when dead
-    if (dead) {
-      final xPaint = Paint()
-        ..color = Colors.white
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(cx + 5, cy - 7), Offset(cx + 11, cy - 1), xPaint);
-      canvas.drawLine(Offset(cx + 11, cy - 7), Offset(cx + 5, cy - 1), xPaint);
+    final paint = Paint()
+      ..color = Colors.white.withAlpha(frame == 0 ? 80 : 40)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    final offsets = [size.height * 0.3, size.height * 0.5, size.height * 0.7];
+    final lengths = [10.0, 14.0, 8.0];
+    for (int i = 0; i < 3; i++) {
+      canvas.drawLine(Offset(lengths[i], offsets[i]), Offset(0, offsets[i]), paint);
     }
   }
 
   @override
-  bool shouldRepaint(_BirdPainter old) =>
-      old.wingY != wingY || old.dead != dead;
+  bool shouldRepaint(_SpeedLinePainter old) => old.frame != frame;
 }
 
 // ─── Pipe Widget ──────────────────────────────────────────────────────────────

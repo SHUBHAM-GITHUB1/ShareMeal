@@ -8,6 +8,7 @@ import 'package:sharemeal/screens/splash_screen.dart';
 import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/services/local_notification_service.dart';
 import 'package:sharemeal/services/background_notification_service.dart';
+import 'package:sharemeal/screens/offline_game_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +22,7 @@ void main() async {
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState(),
-      child: const ShareMealApp(),
+      child: const OfflineWrapper(child: ShareMealApp()),
     ),
   );
 }
