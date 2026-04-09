@@ -346,23 +346,46 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
       top: 52, left: 0, right: 0,
       child: Column(children: [
         // Score
-        Text(
-          '$_score',
-          style: const TextStyle(
-            fontSize: 52, fontWeight: FontWeight.w900,
-            color: Colors.white,
-            shadows: [Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(2, 2))],
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+          ),
+          child: Text(
+            '$_score',
+            style: const TextStyle(
+              fontSize: 48, fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: 2,
+              shadows: [
+                Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(2, 2)),
+              ],
+            ),
           ),
         ),
         // Best
-        if (_best > 0)
-          Text(
-            'Best: $_best',
-            style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600,
-              color: Colors.white.withAlpha(180),
+        if (_best > 0) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Best: $_best',
+              style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
+        ],
       ]),
     );
   }
@@ -375,46 +398,90 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             // Offline badge
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.terr.withAlpha(200),
-                borderRadius: BorderRadius.circular(20),
+                color: Color(0xFFE53935).withOpacity(0.9),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFFE53935).withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.wifi_off_rounded, color: Colors.white, size: 14),
-                SizedBox(width: 6),
+                Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+                SizedBox(width: 8),
                 Text('YOU\'RE OFFLINE', style: TextStyle(
-                  color: Colors.white, fontSize: 11,
-                  fontWeight: FontWeight.w700, letterSpacing: 1.5,
+                  color: Colors.white, fontSize: 12,
+                  fontWeight: FontWeight.w800, letterSpacing: 1.8,
                 )),
               ]),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             if (_dead) ...[
-              const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.delete_outline_rounded, color: AppColors.terr, size: 36),
-                SizedBox(width: 8),
-                Text('FOOD WASTED', style: TextStyle(
-                  fontSize: 38, fontWeight: FontWeight.w900,
-                  color: AppColors.terr,
-                  shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
-                )),
-              ]),
-              const SizedBox(height: 12),
-              Text('$_foodName saved: $_score', style: const TextStyle(
-                fontSize: 20, color: Colors.white, fontWeight: FontWeight.w700,
-              )),
-              if (_score == _best && _score > 0) ...[
-                const SizedBox(height: 6),
-                const Text('🏆 New Best!', style: TextStyle(
-                  fontSize: 18, color: AppColors.amber, fontWeight: FontWeight.w700,
-                )),
-              ],
-              const SizedBox(height: 6),
-              Text(
-                'Don\'t let food go to waste!',
-                style: TextStyle(fontSize: 14, color: Colors.white.withAlpha(180), fontStyle: FontStyle.italic),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE53935), width: 2),
+                ),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.delete_outline_rounded, color: Color(0xFFE53935), size: 32),
+                    SizedBox(width: 10),
+                    Text('FOOD WASTED', style: TextStyle(
+                      fontSize: 32, fontWeight: FontWeight.w900,
+                      color: Color(0xFFE53935),
+                      letterSpacing: 1.2,
+                      shadows: [
+                        Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(2, 2)),
+                      ],
+                    )),
+                  ]),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Color(0xFF2ECC40).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF2ECC40), width: 1.5),
+                    ),
+                    child: Text('$_foodName Saved: $_score', style: const TextStyle(
+                      fontSize: 20, color: Color(0xFF2ECC40), fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    )),
+                  ),
+                  if (_score == _best && _score > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text('🏆 NEW BEST!', style: TextStyle(
+                        fontSize: 16, color: Colors.white, fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      )),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Don\'t let food go to waste!',
+                    style: TextStyle(
+                      fontSize: 13, 
+                      color: Colors.white70, 
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ]),
               ),
               const SizedBox(height: 28),
             ] else ...[
@@ -426,18 +493,41 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                'Save the $_foodName!',
-                style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  shadows: [Shadow(color: Colors.black38, blurRadius: 4)],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2ECC40), Color(0xFF27AE60)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF2ECC40).withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'Save the $_foodName!',
+                  style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 0.8,
+                    shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text('Help rescue food while offline', style: TextStyle(
-                fontSize: 14, color: Colors.white.withAlpha(180), fontWeight: FontWeight.w500,
-              )),
+              const SizedBox(height: 12),
+              Text(
+                'Help rescue food while offline',
+                style: TextStyle(
+                  fontSize: 14, 
+                  color: Colors.white.withOpacity(0.85), 
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
               const SizedBox(height: 28),
             ],
 
@@ -445,36 +535,62 @@ class _FlappyBirdGameState extends State<FlappyBirdGame>
             GestureDetector(
               onTap: _jump,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.sageMid, AppColors.sage, AppColors.sageDk],
+                    colors: [Color(0xFF2ECC40), Color(0xFF27AE60), Color(0xFF1E8449)],
                   ),
                   borderRadius: BorderRadius.circular(50),
                   boxShadow: [
-                    BoxShadow(color: AppColors.sage.withAlpha(100), blurRadius: 20, offset: const Offset(0, 6)),
+                    BoxShadow(
+                      color: Color(0xFF2ECC40).withOpacity(0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
                   ],
                 ),
-                child: Text(
-                  _dead ? '▶  PLAY AGAIN' : '▶  TAP TO PLAY',
-                  style: const TextStyle(
-                    color: Colors.white, fontSize: 16,
-                    fontWeight: FontWeight.w800, letterSpacing: 1.5,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      _dead ? 'PLAY AGAIN' : 'TAP TO PLAY',
+                      style: const TextStyle(
+                        color: Colors.white, fontSize: 18,
+                        fontWeight: FontWeight.w900, letterSpacing: 1.8,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.black.withAlpha(60),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withAlpha(40), width: 1),
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
               ),
-              child: Text(
-                '💡 Tap anywhere to flap and avoid obstacles',
-                style: TextStyle(fontSize: 12, color: Colors.white.withAlpha(160), fontWeight: FontWeight.w500),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '💡',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tap anywhere to flap',
+                    style: TextStyle(
+                      fontSize: 13, 
+                      color: Colors.white.withOpacity(0.9), 
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
           ]),
