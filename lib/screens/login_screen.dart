@@ -5,6 +5,7 @@ import 'package:sharemeal/constants/app_theme.dart';
 import 'package:sharemeal/constants/app_responsive.dart';
 import 'package:sharemeal/screens/donor_dashboard.dart';
 import 'package:sharemeal/screens/ngo_dashboard.dart';
+import 'package:sharemeal/screens/map_picker_screen.dart';
 import 'package:sharemeal/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -375,9 +376,13 @@ class _LoginScreenState extends State<LoginScreen>
                         keyboard: TextInputType.phone,
                         val: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
                     const SizedBox(height: 12),
-                    _lf(label: 'FULL ADDRESS', ctrl: _addr,
-                        icon: Icons.place_outlined, hint: 'Your full address',
-                        val: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                    _lfWithMap(
+                      label: 'FULL ADDRESS',
+                      ctrl: _addr,
+                      icon: Icons.place_outlined,
+                      hint: 'Your full address',
+                      val: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
                   ],
                   if (_isLogin) ...[
                     const SizedBox(height: 8),
@@ -534,6 +539,63 @@ class _LoginScreenState extends State<LoginScreen>
         _FocusField(controller: ctrl, icon: icon, hint: hint,
             keyboard: keyboard, obscure: obscure,
             suffix: suffix, validator: val),
+      ],
+    );
+  }
+
+  Widget _lfWithMap({
+    required String label, required TextEditingController ctrl,
+    required IconData icon, required String hint,
+    String? Function(String?)? val,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 5),
+          child: Text(label, style: AppTextStyles.fieldLabel),
+        ),
+        _FocusField(
+          controller: ctrl,
+          icon: icon,
+          hint: hint,
+          validator: val,
+          suffix: GestureDetector(
+            onTap: () async {
+              final result = await Navigator.push<PickedLocation>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MapPickerScreen(),
+                ),
+              );
+              if (result != null) {
+                ctrl.text = result.address;
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: AppGradients.sageButton,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.map_outlined, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Map',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
